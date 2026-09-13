@@ -1,0 +1,19 @@
+# build output
+dist/
+dist-web/
+*.tsbuildinfo
+
+# dependencies
+node_modules/
+
+# test / coverage
+coverage/
+
+# local dev state
+data-dev/
+*.log
+
+# editors
+.idea/
+.vscode/
+.DS_Store

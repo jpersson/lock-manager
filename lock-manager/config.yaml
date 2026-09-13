@@ -1,0 +1,38 @@
+name: Lock Manager
+slug: lock_manager
+description: Manage keypad users (PIN slots) for Zigbee2MQTT locks
+version: "0.1.0"
+arch:
+  - aarch64
+  - amd64
+startup: services
+# `panel_admin` defaults to true: the sidebar panel is visible to HA administrators only.
+# `boot` defaults to auto.
+ingress: true
+panel_title: Lock Manager
+panel_icon: "mdi:lock-check"
+homeassistant_api: true
+services:
+  - mqtt:want
+# NOTE: until registry publishing is set up, the Supervisor builds this app
+# locally from the Dockerfile (no `image:` entry). When publishing to GHCR,
+# uncomment and adjust:
+# image: ghcr.io/jpersson/lock-manager-{arch}
+options:
+  log_level: info
+  notifications_enabled: true
+  notify_target: notify.notify
+  z2m_base_topic: zigbee2mqtt
+  mqtt_host: ""
+  mqtt_port: 1883
+  mqtt_user: ""
+  mqtt_password: ""
+schema:
+  log_level: list(trace|debug|info|warning|error)
+  notifications_enabled: bool
+  notify_target: str?
+  z2m_base_topic: str
+  mqtt_host: str?
+  mqtt_port: port?
+  mqtt_user: str?
+  mqtt_password: str?
