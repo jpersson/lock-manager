@@ -1,23 +1,350 @@
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  background: var(--ha-background, #f2f4f7);
-  color: var(--ha-text, #1c1c1c);
+:root {
+  --bg: #f2f4f7;
+  --card-bg: #ffffff;
+  --text: #1c1c1c;
+  --muted: #888888;
+  --border: #e0e3e8;
+  --primary: #03a9f4;
+  --primary-text: #ffffff;
+  --danger: #db4437;
+  --ok: #43a047;
+  --warn: #fb8c00;
+  --error-bg: #fce8e6;
+  --ok-bg: #e6f4ea;
 }
 
 @media (prefers-color-scheme: dark) {
-  body {
-    --ha-background: #111111;
-    --ha-text: #e1e1e1;
+  :root {
+    --bg: #111111;
+    --card-bg: #1c1c1c;
+    --text: #e1e1e1;
+    --muted: #9c9c9c;
+    --border: #2f2f2f;
+    --primary: #29b6f6;
+    --error-bg: #3b1f1c;
+    --ok-bg: #173a21;
   }
 }
 
-.placeholder {
-  max-width: 720px;
-  margin: 3rem auto;
-  padding: 1.5rem;
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+}
+
+.app {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 1rem 3rem;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 0 0.75rem;
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.icon {
+  margin-right: 0.25rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+}
+
+.tab {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--muted);
+  font-size: 0.95rem;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+}
+
+.tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 1.05rem;
+}
+
+h3 {
+  font-size: 0.95rem;
+  margin: 0 0 0.75rem;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.card-list {
+  margin-bottom: 1.5rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.spread {
+  margin-bottom: 0.75rem;
+}
+
+.lock-name {
+  font-weight: 600;
 }
 
 .muted {
-  color: #888;
+  color: var(--muted);
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.right {
+  text-align: right;
+}
+
+.error-detail {
+  font-size: 0.8rem;
+}
+
+/* ------------------------------------------------------------------ table */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.table th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table td:first-child {
+  width: 4.5rem;
+}
+
+/* ----------------------------------------------------------------- badges */
+
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge.ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.badge.warn {
+  background: rgba(251, 140, 0, 0.15);
+  color: var(--warn);
+}
+
+.badge.error-badge {
+  background: var(--error-bg);
+  color: var(--danger);
+}
+
+.badge.muted-badge {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+button {
+  appearance: none;
+  background: var(--primary);
+  color: var(--primary-text);
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.08);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+button.danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+button.link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  padding: 0;
+  font-size: inherit;
+  text-decoration: underline;
+}
+
+/* ----------------------------------------------------------------- forms */
+
+input,
+select {
+  font: inherit;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+}
+
+.form {
+  margin-top: 1.5rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.form-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.form-row input {
+  min-width: 10rem;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.35rem 0;
+}
+
+.lock-picker {
+  margin-bottom: 0.75rem;
+  display: block;
+}
+
+/* --------------------------------------------------------------- banners */
+
+.banner {
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.error-banner {
+  background: var(--error-bg);
+  color: var(--danger);
+}
+
+.error-banner.banner {
+  border: 1px solid rgba(219, 68, 55, 0.4);
+}
+
+.ok-banner {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+/* ---------------------------------------------------------------- dialog */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.dialog {
+  width: min(440px, 100%);
+  margin-bottom: 0;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.pin-input {
+  max-width: 13rem;
+}
+
+.edit-row input {
+  width: 100%;
 }

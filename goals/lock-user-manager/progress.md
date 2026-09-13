@@ -32,7 +32,9 @@ Execution log for the plan in `plan.md`. Updated as steps complete.
 | 8. HTTP API | ✅ | full REST surface (locks, users CRUD, multi-lock apply, activity w/ paging+filter, settings w/ overrides); X-Remote-User-Name audit trail; PIN never serialized; 101 tests. AJV coercion disabled (null-clear semantics) |
 
 **Bug fixed during step 8:** fastify/AJV coerced JSON `null` → `""`/`false` (breaking settings-override clears and validation) — type coercion disabled app-wide.
-| 9. Frontend SPA | ⬜ | |
+| 9. Frontend SPA | ✅ | Locks / Users (per-lock, PIN keep-on-empty, apply fan-out dialog, status badges) / Activity (filter + polling) / Settings (overrides + reset); relative URLs, no router (Ingress-safe), HA-styled plain CSS; dark mode |
+
+**Real-broker integration test (2026-09-13):** app + eclipse-mosquitto on a shared docker network — auto-discovery from retained `bridge/devices`, manage → create user → apply (set payload captured on the wire: `{"pin_code":{"user":1,"user_type":"unrestricted","user_enabled":true,"pin_code":"1234"}}`), status pending→applied, keypad unlock → activity + notify-failed (expected w/o Supervisor), state survives container restart (store.json + secret.key in /data). |
 | 10. CI + publishing | 🔜 skipped (per decision) | local verification instead |
 | 11. HAOS E2E (manual) | ⬜ | user gate |
 | 12. Docs | ⬜ | |
