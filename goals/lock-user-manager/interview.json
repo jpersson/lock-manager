@@ -1,0 +1,131 @@
+{
+  "stage": "interview",
+  "title": "Lock User Manager — HA app (Zigbee2MQTT)",
+  "goalSlug": "lock-user-manager",
+  "questions": [
+    {
+      "id": "notify-channels",
+      "prompt": "How should lock-activity notifications be delivered?",
+      "description": "When a recognized user uses the keypad, where does the notification go? Multiple channels can be combined.",
+      "answerMode": "multi-custom",
+      "recommendedAnswer": "Send via a configurable HA notify action (e.g. notify.mobile_app_* or notify.notify, set in app settings) plus keep an in-app activity log. Persistent notifications are optional, not default.",
+      "recommendedOptionIds": ["notify_action", "activity_log"],
+      "options": [
+        { "id": "notify_action", "label": "HA notify action" },
+        { "id": "persistent", "label": "HA persistent notification" },
+        { "id": "activity_log", "label": "In-app activity log" }
+      ],
+      "required": true
+    },
+    {
+      "id": "notify-events",
+      "prompt": "Which lock events should trigger a notification for a recognized user?",
+      "description": "Z2M reports keypad unlock/lock with the user slot that was used. Manual operations have no user.",
+      "answerMode": "multi-custom",
+      "recommendedAnswer": "Notify on keypad unlock AND keypad lock by a recognized user (slot mapped to a name). Manual/unknown operations are logged in the activity feed but not notified.",
+      "recommendedOptionIds": ["keypad_unlock", "keypad_lock"],
+      "options": [
+        { "id": "keypad_unlock", "label": "Keypad unlock by user" },
+        { "id": "keypad_lock", "label": "Keypad lock by user" },
+        { "id": "manual", "label": "Manual/thumbturn operations (no user)" },
+        { "id": "other", "label": "Other events (jam, tamper, unknown code)" }
+      ],
+      "required": true
+    },
+    {
+      "id": "pin-storage",
+      "prompt": "How should PINs be stored in the app database?",
+      "description": "Z2M requires expose_pin: true anyway, so PINs already travel over MQTT. Storage choices affect what the UI can re-display.",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Store PINs encrypted at rest (key generated and stored in /data). Admin can reveal a stored PIN on demand in the UI. PINs are never written to logs or debug output.",
+      "recommendedOptionIds": ["encrypted_reveal"],
+      "options": [
+        { "id": "encrypted_reveal", "label": "Encrypted, admin can reveal" },
+        { "id": "encrypted_masked", "label": "Encrypted, never shown again" },
+        { "id": "no_store", "label": "Never persist PINs" }
+      ],
+      "required": true
+    },
+    {
+      "id": "state-sync",
+      "prompt": "How should the app stay in sync with the lock's actual user codes?",
+      "description": "Reading all slots over Zigbee can be slow/flaky (per-slot MQTT queries). Writes can be verified by reading back the affected slot.",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "On-demand: a Refresh button per lock re-reads slots (with per-slot timeouts and graceful fallback to cached state), and every PIN write is verified by reading back that slot. No periodic full sync in v1.",
+      "recommendedOptionIds": ["on_demand"],
+      "options": [
+        { "id": "on_demand", "label": "On-demand refresh + write read-back" },
+        { "id": "periodic", "label": "Periodic full sync of all slots" },
+        { "id": "write_only", "label": "Write-only, app DB is source of truth" }
+      ],
+      "required": true
+    },
+    {
+      "id": "lock-discovery",
+      "prompt": "How should locks be discovered/added in the app?",
+      "description": "HA's device registry knows which lock entities belong to Zigbee2MQTT devices; the friendly name is also the Z2M MQTT base topic.",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Auto-detect Zigbee2MQTT lock entities via the HA device registry (websocket), let the user pick which to manage. No manual entity entry in v1.",
+      "recommendedOptionIds": ["auto"],
+      "options": [
+        { "id": "auto", "label": "Auto-detect Z2M locks" },
+        { "id": "manual", "label": "Manual entity/name entry" },
+        { "id": "hybrid", "label": "Auto-detect + manual add" }
+      ],
+      "required": true
+    },
+    {
+      "id": "user-model",
+      "prompt": "How do users relate to locks?",
+      "description": "A slot+name list could be per lock, or global users could be mapped to the same slot across multiple locks.",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Per-lock user lists for v1 (each lock has its own slot→name mapping). Global users across locks is a future feature.",
+      "recommendedOptionIds": ["per_lock"],
+      "options": [
+        { "id": "per_lock", "label": "Per-lock user lists" },
+        { "id": "global", "label": "Global users across locks" }
+      ],
+      "required": true
+    },
+    {
+      "id": "failure-handling",
+      "prompt": "If a PIN write fails (lock offline, Z2M timeout), what should happen?",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Show a clear error in the UI with the slot marked as unsynced; user retries manually. No automatic retry queue in v1.",
+      "recommendedOptionIds": ["error_retry"],
+      "options": [
+        { "id": "error_retry", "label": "Show error, manual retry" },
+        { "id": "queue", "label": "Auto-retry queue" }
+      ],
+      "required": true
+    },
+    {
+      "id": "distribution",
+      "prompt": "How will you install/distribute the app?",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Own GitHub repository with repository.yaml; multi-arch images (amd64+aarch64) built and published to GHCR via GitHub Actions; install by adding the repo URL in HA's App Store.",
+      "recommendedOptionIds": ["gh_repo"],
+      "options": [
+        { "id": "gh_repo", "label": "GitHub repo + GHCR images" },
+        { "id": "local", "label": "Local build only (copy to /addons)" },
+        { "id": "community", "label": "Submit to community app store" }
+      ],
+      "required": true
+    },
+    {
+      "id": "v1-out-of-scope",
+      "prompt": "Confirm what is explicitly OUT of scope for v1 (kept for later).",
+      "description": "Keep v1 small: users (slot, name), set PIN, notify on activity. Select everything that should NOT be in v1.",
+      "answerMode": "multi-custom",
+      "recommendedAnswer": "All listed items are out of scope for v1: no date/time schedules, no global users across locks, no auto-retry queue, no per-user notification routing or message templates.",
+      "recommendedOptionIds": ["schedules", "global_users", "retry_queue", "notification_routing"],
+      "options": [
+        { "id": "schedules", "label": "Date/time access schedules" },
+        { "id": "global_users", "label": "Global users across locks" },
+        { "id": "retry_queue", "label": "Automatic retry queue" },
+        { "id": "notification_routing", "label": "Per-user notification routing" }
+      ],
+      "required": true
+    }
+  ]
+}
