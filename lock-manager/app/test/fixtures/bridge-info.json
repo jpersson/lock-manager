@@ -1,0 +1,23 @@
+{
+  "version": "1.42.0",
+  "commit": "772f6c0",
+  "coordinator": {
+    "ieee_address": "0x12345678",
+    "type": "zStack30x"
+  },
+  "network": { "channel": 15, "pan_id": 5674 },
+  "log_level": "info",
+  "permit_join": false,
+  "restart_required": false,
+  "config": {
+    "homeassistant": true,
+    "mqtt": {
+      "base_topic": "home/zigbee",
+      "server": "mqtt://localhost:1883"
+    }
+  },
+  "mqtt": {
+    "server": "mqtt://localhost:1883",
+    "version": 5
+  }
+}

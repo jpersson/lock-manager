@@ -23,7 +23,7 @@ Execution log for the plan in `plan.md`. Updated as steps complete.
 | 1. Scaffold | ✅ | manifests pass official add-on linter (tools/lint-addon.sh); docker build + run OK (CI/publishing deferred; image: owner will be jpersson) |
 | 2. App skeleton | ✅ | Fastify + Ingress-safe SPA serving, options loader, redacting logger; 13 tests; docker image runs, /health + SPA fallback verified |
 | 3. Store + crypto | ✅ | AES-256-GCM PIN crypto (tamper-tested), atomic debounced store.json, user CRUD w/ keep-PIN semantics, 90-day purge; 28 tests total |
-| 4. MQTT client + discovery | ⬜ | |
+| 4. MQTT client + discovery | ✅ | MqttService w/ base-topic-relative subs (auto re-subscribe, base correction from bridge/info), Z2M device parsing (pin_code composite detection), Supervisor /services/mqtt resolution; fixtures from real Z2M payloads; 50 tests |
 | 5. Lock driver | ⬜ | |
 | 6. Keypad event pipeline | ⬜ | |
 | 7. HA notify client | ⬜ | |

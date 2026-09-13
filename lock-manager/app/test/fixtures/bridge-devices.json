@@ -1,0 +1,191 @@
+[
+  {
+    "ieee_address": "0x00124b00120144ae",
+    "type": "Coordinator",
+    "network_address": 0,
+    "supported": false,
+    "disabled": false,
+    "endpoints": { "1": { "bindings": [], "configured_reportings": [], "clusters": { "input": [], "output": [] } } },
+    "friendly_name": "Coordinator",
+    "definition": null,
+    "power_source": null,
+    "date_code": null,
+    "model_id": null,
+    "interview_state": "SUCCESSFUL"
+  },
+  {
+    "ieee_address": "0x00158d00018255df",
+    "type": "Router",
+    "network_address": 29159,
+    "supported": true,
+    "disabled": false,
+    "friendly_name": "my_plug",
+    "endpoints": { "1": { "bindings": [], "configured_reportings": [], "clusters": { "input": ["genOnOff", "genBasic"], "output": [] } } },
+    "definition": {
+      "source": "native",
+      "model": "ZNCZ02LM",
+      "vendor": "Xiaomi",
+      "description": "Mi power plug Zigbee",
+      "exposes": [
+        { "type": "switch", "name": "state", "property": "state", "values": ["ON", "OFF"] }
+      ]
+    },
+    "power_source": "Mains (single phase)",
+    "date_code": "02-28-2017",
+    "model_id": "lumi.plug",
+    "interview_state": "SUCCESSFUL"
+  },
+  {
+    "ieee_address": "0x90fd9ffffe6494fc",
+    "type": "Router",
+    "network_address": 57440,
+    "supported": true,
+    "disabled": false,
+    "friendly_name": "my_bulb",
+    "endpoints": { "1": { "bindings": [], "configured_reportings": [], "clusters": { "input": ["genBasic"], "output": ["genOta"] } } },
+    "definition": {
+      "source": "generated",
+      "model": "LED1624G9",
+      "vendor": "IKEA",
+      "description": "TRADFRI bulb E14/E26/E27 600 lumen, dimmable, color, opal",
+      "exposes": [
+        { "type": "light", "name": "light", "property": "light", "features": [] }
+      ]
+    },
+    "power_source": "Mains (single phase)",
+    "interview_state": "SUCCESSFUL"
+  },
+  {
+    "ieee_address": "0x00169a00022256da",
+    "type": "Router",
+    "network_address": 22160,
+    "supported": false,
+    "disabled": false,
+    "friendly_name": "my_sensor",
+    "definition": null,
+    "power_source": "Battery",
+    "interview_state": "SUCCESSFUL"
+  },
+  {
+    "ieee_address": "0x286d97000113d867",
+    "type": "EndDevice",
+    "network_address": 31121,
+    "supported": true,
+    "disabled": false,
+    "friendly_name": "front_door",
+    "definition": {
+      "source": "native",
+      "model": "910",
+      "vendor": "Kwikset",
+      "description": "SmartCode traditional electronic deadbolt",
+      "options": [{ "name": "expose_pin", "property": "expose_pin", "type": "binary" }],
+      "exposes": [
+        { "type": "lock", "name": "state", "property": "state", "values": ["LOCK", "UNLOCK"] },
+        { "type": "enum", "name": "lock_state", "property": "lock_state", "values": ["not_fully_locked", "locked", "unlocked"] },
+        {
+          "type": "composite",
+          "name": "pin_code",
+          "property": "pin_code",
+          "features": [
+            { "type": "numeric", "name": "user", "property": "user" },
+            { "type": "enum", "name": "user_type", "property": "user_type", "values": ["unrestricted", "year_day_schedule", "week_day_schedule", "master", "non_access"] },
+            { "type": "binary", "name": "user_enabled", "property": "user_enabled", "values": ["true", "false"] },
+            { "type": "numeric", "name": "pin_code", "property": "pin_code" }
+          ]
+        },
+        { "type": "enum", "name": "action_source_name", "property": "action_source_name", "values": ["keypad", "rfid", "manual", "rf"] },
+        { "type": "numeric", "name": "action_user", "property": "action_user" },
+        { "type": "enum", "name": "action", "property": "action", "values": ["unknown", "lock", "unlock", "lock_failure_invalid_pin_or_id", "unlock_failure_invalid_pin_or_id", "one_touch_lock", "key_lock", "key_unlock", "auto_lock", "manual_lock", "manual_unlock"] }
+      ]
+    },
+    "power_source": "Battery",
+    "interview_state": "SUCCESSFUL"
+  },
+  {
+    "ieee_address": "0x00158d0005fbd7c2",
+    "type": "EndDevice",
+    "network_address": 41032,
+    "supported": true,
+    "disabled": false,
+    "friendly_name": "garage/back_door",
+    "definition": {
+      "source": "native",
+      "model": "V3-BTZB/V3-BTZBE",
+      "vendor": "Danalock",
+      "description": "BT/ZB smartlock",
+      "exposes": [
+        { "type": "lock", "name": "state", "property": "state", "values": ["LOCK", "UNLOCK"] },
+        {
+          "type": "composite",
+          "name": "pin_code",
+          "property": "pin_code",
+          "features": [
+            { "type": "numeric", "name": "user", "property": "user" },
+            { "type": "numeric", "name": "pin_code", "property": "pin_code" }
+          ]
+        },
+        { "type": "enum", "name": "action_source_name", "property": "action_source_name", "values": ["keypad", "rfid", "manual", "rf"] },
+        { "type": "numeric", "name": "action_user", "property": "action_user" }
+      ]
+    },
+    "power_source": "Battery",
+    "interview_state": "SUCCESSFUL"
+  },
+  {
+    "ieee_address": "0xd0cf5efffeabc123",
+    "type": "EndDevice",
+    "network_address": 58211,
+    "supported": true,
+    "disabled": false,
+    "friendly_name": "pinless_lock",
+    "definition": {
+      "source": "native",
+      "model": "0402946-NO-PIN",
+      "vendor": "Generic",
+      "description": "A lock whose exposes have no pin_code",
+      "exposes": [
+        { "type": "lock", "name": "state", "property": "state", "values": ["LOCK", "UNLOCK"] }
+      ]
+    },
+    "power_source": "Battery",
+    "interview_state": "SUCCESSFUL"
+  },
+  {
+    "ieee_address": "0x60a423fffe1bcdef",
+    "type": "EndDevice",
+    "network_address": 12345,
+    "supported": true,
+    "disabled": true,
+    "friendly_name": "disabled_lock",
+    "definition": {
+      "source": "native",
+      "model": "910",
+      "vendor": "Kwikset",
+      "description": "Disabled lock with pin support",
+      "exposes": [
+        { "type": "lock", "name": "state", "property": "state" },
+        { "type": "composite", "name": "pin_code", "property": "pin_code", "features": [] }
+      ]
+    },
+    "interview_state": "SUCCESSFUL"
+  },
+  {
+    "ieee_address": "0x60a423fffe1bc99a",
+    "type": "EndDevice",
+    "network_address": 12346,
+    "supported": true,
+    "disabled": false,
+    "friendly_name": "still_interviewing",
+    "definition": {
+      "source": "native",
+      "model": "914",
+      "vendor": "Kwikset",
+      "description": "Lock still being interviewed",
+      "exposes": [
+        { "type": "lock", "name": "state", "property": "state" },
+        { "type": "composite", "name": "pin_code", "property": "pin_code", "features": [] }
+      ]
+    },
+    "interview_state": "IN_PROGRESS"
+  }
+]
