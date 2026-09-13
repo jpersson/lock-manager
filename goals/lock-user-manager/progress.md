@@ -22,7 +22,7 @@ Execution log for the plan in `plan.md`. Updated as steps complete.
 | --- | --- | --- |
 | 1. Scaffold | ✅ | manifests pass official add-on linter (tools/lint-addon.sh); docker build + run OK (CI/publishing deferred; image: owner will be jpersson) |
 | 2. App skeleton | ✅ | Fastify + Ingress-safe SPA serving, options loader, redacting logger; 13 tests; docker image runs, /health + SPA fallback verified |
-| 3. Store + crypto | ⬜ | |
+| 3. Store + crypto | ✅ | AES-256-GCM PIN crypto (tamper-tested), atomic debounced store.json, user CRUD w/ keep-PIN semantics, 90-day purge; 28 tests total |
 | 4. MQTT client + discovery | ⬜ | |
 | 5. Lock driver | ⬜ | |
 | 6. Keypad event pipeline | ⬜ | |
