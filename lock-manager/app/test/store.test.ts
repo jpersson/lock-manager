@@ -76,7 +76,7 @@ describe('Store', () => {
   it('starts with defaults, then persists and reloads state', async () => {
     const dir = tempDir();
     const store = await openStore(dir);
-    expect(store.settings).toEqual({ notifyTarget: 'notify.notify', notificationsEnabled: true });
+    expect(store.settings).toEqual({});
     expect(Object.keys(store.locks)).toHaveLength(0);
 
     store.addOrUpdateLock({ id: '0x001', friendlyName: 'front_door', model: '910' });

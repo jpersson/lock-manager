@@ -86,8 +86,9 @@ export class Store {
     return this.state.settings;
   }
 
-  updateSettings(patch: Partial<Settings>): void {
-    this.state.settings = { ...this.state.settings, ...patch };
+  /** Replaces the settings object (the domain layer builds the complete value). */
+  updateSettings(settings: Settings): void {
+    this.state.settings = { ...settings };
     this.scheduleFlush();
   }
 

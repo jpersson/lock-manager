@@ -25,8 +25,10 @@ Execution log for the plan in `plan.md`. Updated as steps complete.
 | 3. Store + crypto | ✅ | AES-256-GCM PIN crypto (tamper-tested), atomic debounced store.json, user CRUD w/ keep-PIN semantics, 90-day purge; 28 tests total |
 | 4. MQTT client + discovery | ✅ | MqttService w/ base-topic-relative subs (auto re-subscribe, base correction from bridge/info), Z2M device parsing (pin_code composite detection), Supervisor /services/mqtt resolution; fixtures from real Z2M payloads; 50 tests |
 | 5. Lock driver | ✅ | payload variants (default composite, Danalock user_status), QoS-1 writes to <friendly>/set, clear = pin_code omitted; fan-out verified |
-| 6. Keypad event pipeline | ⬜ | |
-| 7. HA notify client | ⬜ | |
+| 6. Keypad event pipeline | ✅ | normalizer (keypad unlock/lock/failure, manual, other; slot verbatim), LockEventMonitor w/ rename re-watch, activity types, 90-day purge (startup + daily); landed together with step 7 |
+| 7. HA notify client | ✅ | SupervisorClient.callNotifyService via /core/api/services/<domain>/<service>; notify pipeline: recognized keypad events → notify, failures → notify-failed activity entry; Settings overrides (store) over add-on option defaults |
+
+**Bug fixed during step 6:** `Store.updateSettings` merged patches (reset values couldn't be cleared) — now replaces the complete settings object built by the domain layer.
 | 8. HTTP API | ⬜ | |
 | 9. Frontend SPA | ⬜ | |
 | 10. CI + publishing | 🔜 skipped (per decision) | local verification instead |

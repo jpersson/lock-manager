@@ -90,4 +90,38 @@ export class SupervisorClient {
       ssl: data.ssl === true,
     };
   }
+
+  /**
+   * Calls a Home Assistant notify action through the Supervisor proxy
+   * (requires `homeassistant_api: true`).
+   *
+   * @param target service in `domain.service` form, e.g. `notify.notify`
+   */
+  async callNotifyService(target: string, title: string, message: string): Promise<void> {
+    if (!this.available) {
+      throw new Error('Supervisor API not available (not running as add-on)');
+    }
+    const match = /^([\w-]+)\.[\w-]+$/.exec(target);
+    if (match === null) {
+      throw new Error(`Invalid notify target '${target}' (expected domain.service)`);
+    }
+    const domain = match[1] as string;
+    const service = target.slice(domain.length + 1);
+    let res: Response;
+    try {
+      res = await this.fetchImpl(`${this.baseUrl}/core/api/services/${domain}/${service}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.token as string}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title, message }),
+      });
+    } catch (err) {
+      throw new Error(`Notify call failed: ${String(err instanceof Error ? err.message : err)}`);
+    }
+    if (!res.ok) {
+      throw new Error(`Notify service '${target}' failed: HTTP ${res.status}`);
+    }
+  }
 }

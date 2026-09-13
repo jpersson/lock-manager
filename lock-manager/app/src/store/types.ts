@@ -1,9 +1,10 @@
 /** Persistent state shapes (store.json in the add-on /data volume). */
 
 export interface Settings {
-  /** HA notify action to call, e.g. notify.notify */
-  notifyTarget: string;
-  notificationsEnabled: boolean;
+  /** HA notify action override (e.g. notify.mobile_app_pixel); undefined = follow add-on options */
+  notifyTarget?: string;
+  /** Notification toggle override; undefined = follow add-on options */
+  notificationsEnabled?: boolean;
 }
 
 /** Apply status of a user's PIN on the owning lock, based on the last MQTT write. */
@@ -75,10 +76,7 @@ export interface AppState {
 export function defaultState(): AppState {
   return {
     version: 1,
-    settings: {
-      notifyTarget: 'notify.notify',
-      notificationsEnabled: true,
-    },
+    settings: {},
     locks: {},
     activity: [],
   };
