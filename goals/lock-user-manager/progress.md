@@ -35,6 +35,26 @@ Execution log for the plan in `plan.md`. Updated as steps complete.
 | 9. Frontend SPA | ✅ | Locks / Users (per-lock, PIN keep-on-empty, apply fan-out dialog, status badges) / Activity (filter + polling) / Settings (overrides + reset); relative URLs, no router (Ingress-safe), HA-styled plain CSS; dark mode |
 
 **Real-broker integration test (2026-09-13):** app + eclipse-mosquitto on a shared docker network — auto-discovery from retained `bridge/devices`, manage → create user → apply (set payload captured on the wire: `{"pin_code":{"user":1,"user_type":"unrestricted","user_enabled":true,"pin_code":"1234"}}`), status pending→applied, keypad unlock → activity + notify-failed (expected w/o Supervisor), state survives container restart (store.json + secret.key in /data). |
-| 10. CI + publishing | 🔜 skipped (per decision) | local verification instead |
-| 11. HAOS E2E (manual) | ⬜ | user gate |
-| 12. Docs | ⬜ | |
+| 10. CI + publishing | 🔵 skipped (per decision) | local verification instead: lint, typecheck, 101 vitest tests, docker build amd64 + aarch64 (arm64 image built and smoke-tested under emulation) |
+| 11. HAOS E2E (manual) | ⏳ | **user gate** — checklist below |
+| 12. Docs | ✅ | root README (features/install/architecture/security/limitations/dev), add-on README, CHANGELOG |
+
+## Step 11 — manual HAOS end-to-end checklist (user gate)
+
+Run on the real Home Assistant installation:
+
+- [ ] Push the `proteus` branch to the Gitea remote (or merge to `main`)
+- [ ] Add the repository URL to HA App Store (Settings → Apps → App Store → ⋮ → Repositories)
+- [ ] Install **Lock Manager** from the store; it builds locally (this needs the machine to have internet access for the base image)
+- [ ] Start the app; panel appears in the sidebar (admin only) — Mosquitto + Zigbee2MQTT running
+- [ ] Locks auto-detected; manage the real lock
+- [ ] Create a user (slot + name + PIN), apply → status `applied`; **the PIN physically opens the lock**
+- [ ] Apply the same PIN to a second lock (if available) in one action
+- [ ] Keypad unlock with that PIN → notification fires on the configured target with lock/user/action in the message
+- [ ] Unknown PIN attempt + manual unlock → activity log entries, no notification
+- [ ] Remove the user → PIN no longer works on the lock; entry gone
+- [ ] Edit user, leave PIN empty → PIN still works (kept)
+- [ ] Restart the app → users + activity survive
+- [ ] Stop Mosquitto → apply shows `failed` with error; restart → retry succeeds
+
+Open question: the actual lock vendor/model was never provided ("other vendor") — if the lock needs a different Z2M payload variant, add it in `lock-manager/app/src/mqtt/lockDriver.ts` (see the Danalock variant as the pattern) plus fixture tests.
