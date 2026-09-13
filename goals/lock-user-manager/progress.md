@@ -29,7 +29,9 @@ Execution log for the plan in `plan.md`. Updated as steps complete.
 | 7. HA notify client | ✅ | SupervisorClient.callNotifyService via /core/api/services/<domain>/<service>; notify pipeline: recognized keypad events → notify, failures → notify-failed activity entry; Settings overrides (store) over add-on option defaults |
 
 **Bug fixed during step 6:** `Store.updateSettings` merged patches (reset values couldn't be cleared) — now replaces the complete settings object built by the domain layer.
-| 8. HTTP API | ⬜ | |
+| 8. HTTP API | ✅ | full REST surface (locks, users CRUD, multi-lock apply, activity w/ paging+filter, settings w/ overrides); X-Remote-User-Name audit trail; PIN never serialized; 101 tests. AJV coercion disabled (null-clear semantics) |
+
+**Bug fixed during step 8:** fastify/AJV coerced JSON `null` → `""`/`false` (breaking settings-override clears and validation) — type coercion disabled app-wide.
 | 9. Frontend SPA | ⬜ | |
 | 10. CI + publishing | 🔜 skipped (per decision) | local verification instead |
 | 11. HAOS E2E (manual) | ⬜ | user gate |

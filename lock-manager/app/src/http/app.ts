@@ -5,10 +5,19 @@ import fastify, { type FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import type { AppOptions } from '../config/options.js';
 import type { Logger } from '../logger.js';
+import type { Store } from '../store/store.js';
+import type { LockManager } from '../domain/lockManager.js';
+import type { DiscoveryService } from '../mqtt/discovery.js';
+import type { TopicClient } from '../mqtt/client.js';
+import { registerRoutes } from './api.js';
 
 export interface AppDeps {
   options: AppOptions;
   logger: Logger;
+  store: Store;
+  manager: LockManager;
+  discovery: DiscoveryService;
+  mqtt: TopicClient;
 }
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -23,16 +32,23 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const app = fastify({
     logger: false,
     bodyLimit: 1024 * 1024,
+    // The API relies on JSON null (e.g. to clear a settings override); AJV's
+    // default type coercion would silently turn null into ""/false.
+    ajv: { customOptions: { coerceTypes: false } },
   });
 
   app.get('/health', async () => ({ status: 'ok' }));
 
-  // Placeholder status endpoint; filled in as the domain layer grows.
   app.get('/api/status', async () => ({
     status: 'ok',
     version: '0.1.0',
-    mqtt: 'not-connected',
+    mqtt: deps.mqtt.connected ? 'connected' : 'disconnected',
+    baseTopic: deps.mqtt.currentBaseTopic,
+    notifyTarget: deps.manager.notifyTarget,
+    notificationsEnabled: deps.manager.notificationsEnabled,
   }));
+
+  registerRoutes(app, deps);
 
   if (existsSync(webRoot)) {
     await app.register(fastifyStatic, {
