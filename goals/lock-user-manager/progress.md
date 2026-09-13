@@ -24,7 +24,7 @@ Execution log for the plan in `plan.md`. Updated as steps complete.
 | 2. App skeleton | ✅ | Fastify + Ingress-safe SPA serving, options loader, redacting logger; 13 tests; docker image runs, /health + SPA fallback verified |
 | 3. Store + crypto | ✅ | AES-256-GCM PIN crypto (tamper-tested), atomic debounced store.json, user CRUD w/ keep-PIN semantics, 90-day purge; 28 tests total |
 | 4. MQTT client + discovery | ✅ | MqttService w/ base-topic-relative subs (auto re-subscribe, base correction from bridge/info), Z2M device parsing (pin_code composite detection), Supervisor /services/mqtt resolution; fixtures from real Z2M payloads; 50 tests |
-| 5. Lock driver | ⬜ | |
+| 5. Lock driver | ✅ | payload variants (default composite, Danalock user_status), QoS-1 writes to <friendly>/set, clear = pin_code omitted; fan-out verified |
 | 6. Keypad event pipeline | ⬜ | |
 | 7. HA notify client | ⬜ | |
 | 8. HTTP API | ⬜ | |

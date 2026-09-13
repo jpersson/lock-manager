@@ -58,6 +58,7 @@ export interface TopicClient {
   readonly connected: boolean;
   readonly currentBaseTopic: string;
   subscribe(relativeTopic: string, handler: MqttMessageHandler, qos?: number): void;
+  unsubscribe(relativeTopic: string): void;
   publish(relativeTopic: string, payload: unknown, qos?: number): Promise<void>;
   setBaseTopic(base: string): Promise<void>;
   onConnected(cb: () => void): void;
@@ -120,6 +121,14 @@ export class MqttService implements TopicClient {
     this.registrations.set(relativeTopic, { relativeTopic, qos, handler });
     if (this.client !== undefined) {
       void this.client.subscribeAsync(this.absolute(relativeTopic), { qos });
+    }
+  }
+
+  /** Removes a registration and unsubscribes on the broker. */
+  unsubscribe(relativeTopic: string): void {
+    this.registrations.delete(relativeTopic);
+    if (this.client !== undefined) {
+      void this.client.unsubscribeAsync(this.absolute(relativeTopic));
     }
   }
 
