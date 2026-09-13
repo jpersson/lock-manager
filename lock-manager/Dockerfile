@@ -11,7 +11,15 @@ COPY app/ ./
 # Compiles the server (tsc -> dist/) and builds the web UI (vite -> dist-web/)
 RUN npm run build
 
+# Production-only node_modules for the runtime image
+FROM ${BUILD_FROM} AS deps
+WORKDIR /deps
+COPY app/package.json app/package-lock.json ./
+RUN npm ci --omit=dev
+
 FROM ${BUILD_FROM}
+ARG BUILD_ARCH
+ARG BUILD_VERSION
 LABEL \
     io.hass.type="addon" \
     io.hass.arch="${BUILD_ARCH}" \
@@ -20,6 +28,7 @@ LABEL \
     io.hass.version="${BUILD_VERSION}"
 
 WORKDIR /app
+COPY --from=deps /deps/node_modules ./node_modules
 COPY --from=build /src/dist ./dist
 COPY --from=build /src/dist-web ./web
 

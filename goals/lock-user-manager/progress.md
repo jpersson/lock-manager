@@ -20,8 +20,8 @@ Execution log for the plan in `plan.md`. Updated as steps complete.
 
 | Step | Status | Notes |
 | --- | --- | --- |
-| 1. Scaffold | ⏳ | repository.yaml, config.yaml, build.yaml, Dockerfile |
-| 2. App skeleton | ⬜ | |
+| 1. Scaffold | ✅ | manifests pass official add-on linter (tools/lint-addon.sh); docker build + run OK (CI/publishing deferred; image: owner will be jpersson) |
+| 2. App skeleton | ✅ | Fastify + Ingress-safe SPA serving, options loader, redacting logger; 13 tests; docker image runs, /health + SPA fallback verified |
 | 3. Store + crypto | ⬜ | |
 | 4. MQTT client + discovery | ⬜ | |
 | 5. Lock driver | ⬜ | |
