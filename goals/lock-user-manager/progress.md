@@ -43,7 +43,7 @@ Execution log for the plan in `plan.md`. Updated as steps complete.
 
 Run on the real Home Assistant installation:
 
-- [ ] Push the `proteus` branch to the Gitea remote (or merge to `main`)
+- [ ] Push the `proteus` branch to GitHub (or merge to `main` — required, since the App Store reads the default branch)
 - [ ] Add the repository URL to HA App Store (Settings → Apps → App Store → ⋮ → Repositories)
 - [ ] Install **Lock Manager** from the store; it builds locally (this needs the machine to have internet access for the base image)
 - [ ] Start the app; panel appears in the sidebar (admin only) — Mosquitto + Zigbee2MQTT running

@@ -25,7 +25,7 @@ more locks, and notifications plus an activity log for keypad events.
 ## Install
 
 1. In Home Assistant: **Settings → Apps → App Store → ⋮ → Repositories**, add
-   this repository's URL.
+   `https://github.com/jpersson/lock-manager`.
 2. Install **Lock Manager** from the store. The image is built locally on your
    HAOS/Supervised machine (no pre-built registry images yet — see
    [Publishing](#publishing-planned) below).
@@ -113,8 +113,8 @@ The notification target and toggle can also be overridden in the app's
 Today the Supervisor builds the image locally from this repository. When
 registry publishing is wired up, `config.yaml` gains
 `image: ghcr.io/jpersson/lock-manager-{arch}` with multi-arch images built by
-CI (amd64 + aarch64); the store URL then switches to the GitHub mirror. The
-`image:` line is intentionally omitted until then.
+GitHub Actions (amd64 + aarch64). The `image:` line is intentionally omitted
+until then.
 
 ## Development
 
