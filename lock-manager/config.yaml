@@ -14,9 +14,11 @@ panel_icon: "mdi:lock-check"
 homeassistant_api: true
 services:
   - mqtt:want
-# NOTE: until registry publishing is set up, the Supervisor builds this app
-# locally from the Dockerfile (no `image:` entry). When publishing to GHCR,
-# uncomment and adjust:
+# NOTE: while this line is commented out, the Supervisor builds the app locally
+# from the Dockerfile (used until the first registry release).
+# Release flow: bump `version` below, uncomment this line, merge to main, then
+# tag vX.Y.Z — the GitHub Actions workflow builds and publishes the matching
+# per-arch images to GHCR, and the store switches to pulling them:
 # image: ghcr.io/jpersson/lock-manager-{arch}
 options:
   log_level: info

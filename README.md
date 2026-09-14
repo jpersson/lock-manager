@@ -108,13 +108,29 @@ The notification target and toggle can also be overridden in the app's
 - No access schedules, no global users across locks, no automatic retry
   queues, no per-user notification routing (v1 scope decisions).
 
-## Publishing (planned)
+## Publishing
 
-Today the Supervisor builds the image locally from this repository. When
-registry publishing is wired up, `config.yaml` gains
-`image: ghcr.io/jpersson/lock-manager-{arch}` with multi-arch images built by
-GitHub Actions (amd64 + aarch64). The `image:` line is intentionally omitted
-until then.
+Until the first registry release, the Supervisor builds the image locally from
+this repository. The CI workflow (`.github/workflows/ci.yml`) is already in
+place: it runs lint/typecheck/tests, the official add-on linter, and Docker
+builds for **amd64 + aarch64** on every push and pull request, and on `v*`
+tags it additionally publishes the per-arch images to GHCR
+(`ghcr.io/jpersson/lock-manager-{arch}`).
+
+Release flow:
+
+1. Bump `version` in `lock-manager/config.yaml` and update
+   `lock-manager/CHANGELOG.md`
+2. Uncomment the `image: ghcr.io/jpersson/lock-manager-{arch}` line in
+   `lock-manager/config.yaml`
+3. Merge to `main`, then tag `vX.Y.Z` (the tag must match the config version —
+   CI fails the publish job otherwise)
+4. The store then installs the prebuilt registry images instead of building
+   locally
+
+> If this repository (and therefore the GHCR packages) is private, add your
+> GHCR credentials under **Settings → Apps → App Store** so the Supervisor
+> can pull the images; make the packages public alongside a public repo.
 
 ## Development
 

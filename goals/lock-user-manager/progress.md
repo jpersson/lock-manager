@@ -4,7 +4,7 @@ Execution log for the plan in `plan.md`. Updated as steps complete.
 
 ## Decisions (from kickoff Q&A, 2026-09-13)
 
-- **Distribution**: local Docker builds for now (Supervisor builds from the repo); CI/publishing wired later. `config.yaml` omits `image:` until publishing is set up. Future registry: `ghcr.io/jpersson/lock-manager-{arch}`.
+- **Distribution**: repo lives on GitHub (`jpersson/lock-manager`). Until the first tagged release the Supervisor builds locally (no `image:`); the Actions workflow publishes per-arch GHCR images on `v*` tags (see README "Publishing"). Future registry: `ghcr.io/jpersson/lock-manager-{arch}`.
 - **Cadence**: autonomous execution of steps 1–10, then hand off for manual HAOS E2E (step 11).
 - **Lock model**: not yet provided ("other vendor"). Driver uses default payload + variant hooks (Danalock variant included from Z2M docs). Open question for step 11.
 - **CI (step 10)**: skipped per decision above; local equivalents (lint, typecheck, vitest, docker build) run instead.
@@ -35,7 +35,7 @@ Execution log for the plan in `plan.md`. Updated as steps complete.
 | 9. Frontend SPA | ✅ | Locks / Users (per-lock, PIN keep-on-empty, apply fan-out dialog, status badges) / Activity (filter + polling) / Settings (overrides + reset); relative URLs, no router (Ingress-safe), HA-styled plain CSS; dark mode |
 
 **Real-broker integration test (2026-09-13):** app + eclipse-mosquitto on a shared docker network — auto-discovery from retained `bridge/devices`, manage → create user → apply (set payload captured on the wire: `{"pin_code":{"user":1,"user_type":"unrestricted","user_enabled":true,"pin_code":"1234"}}`), status pending→applied, keypad unlock → activity + notify-failed (expected w/o Supervisor), state survives container restart (store.json + secret.key in /data). |
-| 10. CI + publishing | 🔵 skipped (per decision) | local verification instead: lint, typecheck, 101 vitest tests, docker build amd64 + aarch64 (arm64 image built and smoke-tested under emulation) |
+| 10. CI + publishing | ✅ | `.github/workflows/ci.yml`: lint/typecheck/vitest + official add-on linter + per-arch docker builds on push/PR (amd64 + aarch64 via QEMU); publishes `ghcr.io/jpersson/lock-manager-{arch}:<version>` on `v*` tags with config/tag version match gate; `image:` stays commented until the first tagged release (documented release flow in README) |
 | 11. HAOS E2E (manual) | ⏳ | **user gate** — checklist below |
 | 12. Docs | ✅ | root README (features/install/architecture/security/limitations/dev), add-on README, CHANGELOG |
 
