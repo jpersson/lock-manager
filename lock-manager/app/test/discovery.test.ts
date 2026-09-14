@@ -21,7 +21,11 @@ function loadFixture(name: string): unknown {
 describe('parseBridgeDevices', () => {
   it('finds PIN-capable locks and filters everything else out', () => {
     const locks = parseBridgeDevices(loadFixture('bridge-devices.json'));
-    expect(locks.map((l) => l.friendlyName).sort()).toEqual(['front_door', 'garage/back_door']);
+    expect(locks.map((l) => l.friendlyName).sort()).toEqual([
+      'front_door',
+      'garage/back_door',
+      'nimly_front',
+    ]);
     const front = locks.find((l) => l.friendlyName === 'front_door') as DiscoveredLock;
     expect(front.id).toBe('0x286d97000113d867');
     expect(front.model).toBe('910');
@@ -92,8 +96,9 @@ describe('DiscoveryService', () => {
     expect(discovery.getDiscovered().map((l) => l.friendlyName)).toEqual([
       'front_door',
       'garage/back_door',
+      'nimly_front',
     ]);
-    expect(seen.at(-1)).toHaveLength(2);
+    expect(seen.at(-1)).toHaveLength(3);
     expect(discovery.friendlyNameOf('0x286d97000113d867')).toBe('front_door');
   });
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.3
+
+- Support Onesti Nimly / EasyAccess-style locks: keypad events are detected
+  from the `last_unlock_source` / `last_unlock_user` / `last_lock_source` /
+  `last_lock_user` state fields (including repeated unlocks by the same user
+  via lock state transitions) — these locks do not publish `action` events.
+- Security: log scrubbing now redacts any key containing pin/password/secret/
+  token — this includes the Nimly's `last_used_pin_code` state field (the PIN
+  actually used), which could previously reach debug logs.
+
 ## 0.1.2
 
 - Diagnostics: with `log_level: debug` the app logs every raw state message

@@ -187,5 +187,41 @@
       ]
     },
     "interview_state": "IN_PROGRESS"
+  },
+  {
+    "ieee_address": "0x00158d000aabbccd",
+    "type": "EndDevice",
+    "network_address": 34001,
+    "supported": true,
+    "disabled": false,
+    "friendly_name": "nimly_front",
+    "definition": {
+      "source": "native",
+      "model": "Nimly",
+      "vendor": "Onesti Products AS",
+      "description": "Zigbee module for Nimly Doorlock series",
+      "exposes": [
+        { "type": "lock", "name": "state", "property": "state", "values": ["LOCK", "UNLOCK"] },
+        { "type": "enum", "name": "lock_state", "property": "lock_state", "values": ["not_fully_locked", "locked", "unlocked"] },
+        { "type": "enum", "name": "last_unlock_source", "property": "last_unlock_source", "values": ["zigbee", "keypad", "fingerprintsensor", "rfid", "self", "unknown"] },
+        { "type": "text", "name": "last_unlock_user", "property": "last_unlock_user" },
+        { "type": "enum", "name": "last_lock_source", "property": "last_lock_source", "values": ["zigbee", "keypad", "fingerprintsensor", "rfid", "self", "unknown"] },
+        { "type": "text", "name": "last_lock_user", "property": "last_lock_user" },
+        { "type": "text", "name": "last_used_pin_code", "property": "last_used_pin_code" },
+        {
+          "type": "composite",
+          "name": "pin_code",
+          "property": "pin_code",
+          "features": [
+            { "type": "numeric", "name": "user", "property": "user" },
+            { "type": "enum", "name": "user_type", "property": "user_type", "values": ["unrestricted", "year_day_schedule", "week_day_schedule", "master", "non_access"] },
+            { "type": "binary", "name": "user_enabled", "property": "user_enabled" },
+            { "type": "numeric", "name": "pin_code", "property": "pin_code" }
+          ]
+        }
+      ]
+    },
+    "power_source": "Battery",
+    "interview_state": "SUCCESSFUL"
   }
 ]

@@ -15,12 +15,13 @@ describe('secret scrubbing', () => {
       pinEnc: 'base64==',
       pin_enc: 'base64==',
       encryptedPin: 'abc',
+      last_used_pin_code: '1234',
       password: 'hunter2',
       mqtt_password: 'hunter2',
       secret: 's',
       secretKey: 's',
       token: 't',
-      nested: { pin_code: '1234', list: [{ pin: '1234' }] },
+      nested: { last_used_pin_code: '1234', list: [{ pin: '1234' }] },
       safe: 'visible',
     };
     const scrubbed = JSON.stringify(scrub(fields));
@@ -30,11 +31,11 @@ describe('secret scrubbing', () => {
     expect(scrubbed).toContain('[redacted]');
   });
 
-  it('keeps non-secret fields intact', () => {
+  it('keeps non-secret fields intact (PIN-related fields are redacted deliberately)', () => {
     expect(scrub({ slot: 3, name: 'Alice', pinSet: true })).toEqual({
       slot: 3,
       name: 'Alice',
-      pinSet: true,
+      pinSet: '[redacted]',
     });
   });
 });

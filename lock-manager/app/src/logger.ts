@@ -17,8 +17,7 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
 
 export type LogFields = Record<string, unknown>;
 
-const SECRET_KEY =
-  /^(pin|pincode|pin_code|pinenc|pin_enc|encryptedpin|encrypted_pin|password|passwd|mqttpassword|mqtt_password|secret|secretkey|secret_key|token)$/i;
+const SECRET_KEY = /pin|password|passwd|secret|token/i;
 
 /** Replaces secret-looking values (deep) with a placeholder. */
 export function scrub(value: unknown, keyHint?: string): unknown {

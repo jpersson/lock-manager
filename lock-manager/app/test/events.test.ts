@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { LockEventMonitor, normalizeLockEvent } from '../src/mqtt/events.js';
+import {
+  extractLastStyleSnapshot,
+  lastStyleEvents,
+  LockEventMonitor,
+  normalizeLockEvent,
+} from '../src/mqtt/events.js';
 import type { TopicClient, MqttMessageHandler } from '../src/mqtt/client.js';
 import { createLogger, type Logger } from '../src/logger.js';
 
@@ -99,7 +104,187 @@ class FakeTopicClient implements TopicClient {
   }
 }
 
-describe('LockEventMonitor', () => {
+describe('last_* style (Onesti/Nimly)', () => {
+  const keypadUnlock = {
+    state: 'UNLOCK',
+    lock_state: 'unlocked',
+    last_unlock_source: 'keypad',
+    last_unlock_user: '1',
+    last_used_pin_code: '1234',
+  };
+
+  it('extracts the snapshot and parses string slot numbers', () => {
+    expect(extractLastStyleSnapshot(keypadUnlock)).toEqual({
+      unlock: { source: 'keypad', user: 1 },
+      lock: undefined,
+      state: 'UNLOCK',
+    });
+  });
+
+  it('returns undefined for payloads with no last_* fields and no state', () => {
+    expect(extractLastStyleSnapshot({ battery: 90 })).toBeUndefined();
+    expect(extractLastStyleSnapshot(null)).toBeUndefined();
+  });
+
+  it('first message only establishes the baseline (no historical event)', () => {
+    const result = lastStyleEvents(undefined, extractLastStyleSnapshot(keypadUnlock) as never);
+    expect(result.events).toEqual([]);
+    expect(result.baseline.state).toBe('UNLOCK');
+  });
+
+  it('keypad unlock by a user → keypad-unlock event with the slot', () => {
+    const baseline = lastStyleEvents(undefined, {
+      state: 'LOCK',
+      lock: { source: 'self', user: 0 },
+    }).baseline;
+    const result = lastStyleEvents(baseline, extractLastStyleSnapshot(keypadUnlock) as never);
+    expect(result.events).toEqual([
+      { kind: 'keypad-unlock', action: 'unlock', source: 'keypad', slot: 1 },
+    ]);
+  });
+
+  it('auto-relock reports as a manual/self lock event', () => {
+    let result = lastStyleEvents(undefined, extractLastStyleSnapshot(keypadUnlock) as never);
+    result = lastStyleEvents(result.baseline, {
+      state: 'LOCK',
+      unlock: { source: 'keypad', user: 1 },
+      lock: { source: 'self', user: 0 },
+    });
+    expect(result.events).toEqual([{ kind: 'manual', action: 'lock', source: 'self', slot: 0 }]);
+  });
+
+  it('same user unlocking again (tuple unchanged) is caught by the state transition', () => {
+    // The Nimly keeps last_unlock_source/user unchanged when the same slot
+    // unlocks twice; the LOCK→UNLOCK state transition is the signal.
+    let result = lastStyleEvents(undefined, extractLastStyleSnapshot(keypadUnlock) as never);
+    result = lastStyleEvents(result.baseline, {
+      state: 'LOCK',
+      unlock: { source: 'keypad', user: 1 },
+      lock: { source: 'self', user: 1 },
+    });
+    expect(result.events).toEqual([{ kind: 'manual', action: 'lock', source: 'self', slot: 1 }]);
+    result = lastStyleEvents(result.baseline, { state: 'UNLOCK', unlock: { source: 'keypad', user: 1 } });
+    expect(result.events).toEqual([
+      { kind: 'keypad-unlock', action: 'unlock', source: 'keypad', slot: 1 },
+    ]);
+  });
+
+  it('rfid/fingerprint/zigbee/unknown sources classify as other', () => {
+    const result = lastStyleEvents({ state: 'LOCK' }, {
+      state: 'UNLOCK',
+      unlock: { source: 'rfid', user: 3 },
+    });
+    expect(result.events).toEqual([
+      { kind: 'other', action: 'unlock', source: 'rfid', slot: 3 },
+    ]);
+  });
+
+  it('no events when nothing changed', () => {
+    const result = lastStyleEvents(
+      { state: 'UNLOCK', unlock: { source: 'keypad', user: 1 } },
+      { state: 'UNLOCK', unlock: { source: 'keypad', user: 1 } },
+    );
+    expect(result.events).toEqual([]);
+  });
+
+  it('state-only transitions (remote unlock) produce other events', () => {
+    const result = lastStyleEvents({ state: 'LOCK' }, { state: 'UNLOCK' });
+    expect(result.events).toEqual([{ kind: 'other', action: 'unlock' }]);
+  });
+});
+
+describe('LockEventMonitor — last_* style end to end', () => {
+  it('Nimly flow: baseline → keypad unlock → auto-relock → re-unlock same user', () => {
+    const mqtt = new FakeTopicClient();
+    const monitor = new LockEventMonitor(mqtt, quietLogger);
+    const seen: Array<{ lockId: string; kind: string; slot?: number }> = [];
+    monitor.onEvent((occ) =>
+      seen.push({ lockId: occ.lockId, kind: occ.event.kind, slot: occ.event.slot }),
+    );
+    monitor.watch('0xnimly', 'front_door');
+
+    // retained/initial state: establishes the baseline, no event
+    mqtt.deliver('front_door', {
+      state: 'LOCK',
+      lock_state: 'locked',
+      last_unlock_source: 'zigbee',
+      last_unlock_user: '0',
+      last_lock_source: 'zigbee',
+      last_lock_user: '0',
+      battery: 95,
+    });
+    expect(seen).toEqual([]);
+
+    // keypad unlock by user 1
+    mqtt.deliver('front_door', {
+      state: 'UNLOCK',
+      lock_state: 'unlocked',
+      last_unlock_source: 'keypad',
+      last_unlock_user: '1',
+      last_used_pin_code: '1234',
+    });
+    expect(seen.at(-1)).toEqual({ lockId: '0xnimly', kind: 'keypad-unlock', slot: 1 });
+
+    // auto-relock after 7s
+    mqtt.deliver('front_door', {
+      state: 'LOCK',
+      lock_state: 'locked',
+      last_lock_source: 'self',
+      last_lock_user: '1',
+    });
+    expect(seen.at(-1)).toEqual({ lockId: '0xnimly', kind: 'manual', slot: 1 });
+
+    // same user unlocks again — tuple unchanged, state transition fires
+    mqtt.deliver('front_door', {
+      state: 'UNLOCK',
+      lock_state: 'unlocked',
+      last_unlock_source: 'keypad',
+      last_unlock_user: '1',
+    });
+    expect(seen.at(-1)).toEqual({ lockId: '0xnimly', kind: 'keypad-unlock', slot: 1 });
+    expect(seen).toHaveLength(3);
+  });
+
+  it('action-style messages still emit exactly one event (no double with state fallback)', () => {
+    const mqtt = new FakeTopicClient();
+    const monitor = new LockEventMonitor(mqtt, quietLogger);
+    const seen: unknown[] = [];
+    monitor.onEvent((occ) => seen.push(occ));
+    monitor.watch('0xkwikset', 'front_door');
+
+    mqtt.deliver('front_door', {
+      state: 'UNLOCK',
+      action: 'unlock',
+      action_source_name: 'keypad',
+      action_user: 2,
+    });
+    expect(seen).toHaveLength(1);
+
+    // a later state-only message does not re-emit (baseline tracked the state)
+    mqtt.deliver('front_door', { state: 'UNLOCK', battery: 88 });
+    expect(seen).toHaveLength(1);
+  });
+
+  it('re-watching (rename) resets the baseline', () => {
+    const mqtt = new FakeTopicClient();
+    const monitor = new LockEventMonitor(mqtt, quietLogger);
+    const seen: unknown[] = [];
+    monitor.onEvent((occ) => seen.push(occ));
+    monitor.watch('0x1', 'front_door');
+    mqtt.deliver('front_door', { state: 'LOCK', last_unlock_source: 'keypad', last_unlock_user: '1' });
+    expect(seen).toHaveLength(0);
+
+    monitor.watch('0x1', 'front_door_lock');
+    // the retained state on the new topic re-establishes the baseline
+    mqtt.deliver('front_door_lock', { state: 'LOCK', last_unlock_source: 'keypad', last_unlock_user: '1' });
+    expect(seen).toHaveLength(0);
+
+    mqtt.deliver('front_door_lock', { state: 'UNLOCK', last_unlock_source: 'keypad', last_unlock_user: '1' });
+    expect(seen.at(-1)).toMatchObject({ event: { kind: 'keypad-unlock' } });
+  });
+});
+
+describe('LockEventMonitor (action style)', () => {
   it('routes events from the lock state topic with the lock id', () => {
     const mqtt = new FakeTopicClient();
     const monitor = new LockEventMonitor(mqtt, quietLogger);

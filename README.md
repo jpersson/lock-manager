@@ -41,7 +41,7 @@ more locks, and notifications plus an activity log for keypad events.
 - Zigbee2MQTT (1.x) connected to an MQTT broker
 - Zigbee locks that support PIN codes (devices exposing `pin_code` in
   Zigbee2MQTT, e.g. Kwikset/Weiser SmartCode, Danalock V3, Datek/ID Lock,
-  ShinaSystem DLM-300Z)
+  ShinaSystem DLM-300Z, Onesti Nimly)
 
 ## App options
 
@@ -77,6 +77,9 @@ The notification target and toggle can also be overridden in the app's
 
 - All lock I/O goes directly over MQTT (QoS 1): PIN writes to
   `<base>/<friendly_name>/set`, keypad events from `<base>/<friendly_name>`.
+  Two event styles are supported: the standard `action`/
+  `action_source_name`/`action_user` shape (Kwikset, Yale, Weiser, …) and the
+  Onesti/Nimly `last_unlock_source`/`last_unlock_user` state-field style.
 - Broker connection details come from the Supervisor's MQTT service
   (Mosquitto) with manual options as fallback.
 - Notifications call HA notify actions through the Supervisor's authenticated

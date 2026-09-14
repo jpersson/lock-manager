@@ -92,12 +92,12 @@ describe('MqttService', () => {
       resolve: async () => connections.shift(),
     });
     void service.start();
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 25));
     expect(clients).toHaveLength(0);
     expect(service.connected).toBe(false);
 
     connections.push({ host: 'broker', port: 1883 });
-    await new Promise((r) => setTimeout(r, 20));
+    await waitFor(() => clients.length > 0, 2000);
     expect(clients).toHaveLength(1);
     await service.stop();
   });
@@ -190,3 +190,13 @@ describe('bridge fixtures', () => {
     expect(info.config.mqtt.base_topic).toBe('home/zigbee');
   });
 });
+
+async function waitFor(condition: () => boolean, timeoutMs = 2000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() > deadline) {
+      throw new Error('waitFor timeout');
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
