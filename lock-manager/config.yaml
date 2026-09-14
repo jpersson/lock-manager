@@ -19,7 +19,7 @@ services:
 # Release flow: bump `version` below, uncomment this line, merge to main, then
 # tag vX.Y.Z — the GitHub Actions workflow builds and publishes the matching
 # per-arch images to GHCR, and the store switches to pulling them:
-# image: ghcr.io/jpersson/lock-manager-{arch}
+image: ghcr.io/jpersson/lock-manager-{arch}
 options:
   log_level: info
   notifications_enabled: true
