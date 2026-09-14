@@ -1,7 +1,7 @@
 name: Lock Manager
 slug: lock_manager
 description: Manage keypad users (PIN slots) for Zigbee2MQTT locks
-version: "0.1.0"
+version: "0.1.1"
 arch:
   - aarch64
   - amd64
