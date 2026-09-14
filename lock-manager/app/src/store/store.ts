@@ -277,14 +277,25 @@ export class Store {
     this.flushTimer.unref?.();
   }
 
-  /** Writes the state atomically (tmp file + rename). */
+  /** Writes the state atomically (tmp file + rename). Never throws. */
   flushNow(): void {
     if (this.flushTimer !== undefined) {
       clearTimeout(this.flushTimer);
       this.flushTimer = undefined;
     }
     const tmp = `${this.file}.tmp`;
-    writeFileSync(tmp, JSON.stringify(this.state, null, 2), { mode: 0o600 });
-    renameSync(tmp, this.file);
+    try {
+      writeFileSync(tmp, JSON.stringify(this.state, null, 2), { mode: 0o600 });
+      renameSync(tmp, this.file);
+    } catch (err) {
+      // A failed flush must never crash the process; state stays in memory
+      // and the next change retries the write.
+      this.logger.error('could not persist store', { error: String(err) });
+    }
+  }
+
+  /** Cancels pending flushes and writes the state one final time. */
+  close(): void {
+    this.flushNow();
   }
 }

@@ -161,6 +161,7 @@ export async function createHarness(opts?: {
     cleanup: async () => {
       await manager.stop();
       await app.close();
+      store.close();
       rmSync(dataDir, { recursive: true, force: true });
     },
   };

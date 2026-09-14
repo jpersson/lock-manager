@@ -150,6 +150,17 @@ describe('Store', () => {
     expect(existsSync(join(dir, 'store.json.tmp'))).toBe(false);
   });
 
+  it('a flush against a vanished data dir never throws (debounce race regression)', async () => {
+    const dir = tempDir();
+    const lines: string[] = [];
+    const store = await Store.open(dir, createLogger('error', (line) => lines.push(line)));
+    store.addOrUpdateLock({ id: '0x001', friendlyName: 'front_door' });
+    rmSync(dir, { recursive: true, force: true });
+    // The debounced timer firing after the dir is gone must not crash.
+    expect(() => store.flushNow()).not.toThrow();
+    expect(lines.some((l) => l.includes('could not persist store'))).toBe(true);
+  });
+
   it('recovers from a corrupt store.json by starting fresh (and backs it up)', async () => {
     const dir = tempDir();
     const store = await openStore(dir);

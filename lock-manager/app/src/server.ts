@@ -59,7 +59,7 @@ async function main(): Promise<void> {
       await app.close();
       await manager.stop();
       await mqtt.stop();
-      store.flushNow();
+      store.close();
     } finally {
       process.exit(0);
     }
