@@ -196,9 +196,12 @@ export interface LastStyleResult {
  * must not produce false events.
  *
  * The fallback events are weaker: on locks that report the state change and
- * the last_* update in separate messages, the fallback fires first with the
- * previous (stale) tuple and the tuple change supersedes it moments later —
- * the monitor handles that by holding fallback events briefly.
+ * the last_* update in separate messages (e.g. Onesti Nimly), the fallback
+ * fires first with the previous (stale) tuple and the real tuple change
+ * supersedes it later. Attributing an unlock to the *previous* user because
+ * the update lags would be wrong, so the monitor holds fallback events for
+ * a window longer than the typical attribute-report lag before emitting
+ * them with best-effort attribution.
  */
 export function lastStyleEvents(
   prev: LastStyleBaseline | undefined,
@@ -247,14 +250,18 @@ interface Watch {
   lockId: string;
   topic: string;
   lastBaseline?: LastStyleBaseline;
-  /** Held state-transition fallback events, per direction, pending their brief grace period */
+  /** Held state-transition fallback events, per direction, pending their grace period */
   held: Map<'unlock' | 'lock', { event: NormalizedLockEvent; timer: NodeJS.Timeout }>;
+  /** When a tuple-change event was last emitted per direction (echo absorption) */
+  lastTupleEmit: Map<'unlock' | 'lock', number>;
 }
 
-/** How long a state-transition fallback event is held before it is emitted.
- *  If the real last_* tuple change arrives within this window (locks that
- *  report state and source/user in separate messages), it supersedes it. */
-const FALLBACK_HOLD_MS = 1500;
+/** How long a state-transition fallback event is held before it is emitted
+ *  with best-effort attribution. Must comfortably exceed the time a lock needs
+ *  to report the authoritative last_* update after a state change (Zigbee
+ *  attribute reports can lag seconds). If the real tuple change arrives within
+ *  this window it supersedes the held fallback. */
+const FALLBACK_HOLD_MS = 10_000;
 
 /**
  * Subscribes to the state topics of managed locks and emits normalized events.
@@ -283,7 +290,7 @@ export class LockEventMonitor {
     if (existing !== undefined) {
       this.mqtt.unsubscribe(existing.topic);
     }
-    const watch: Watch = { lockId, topic, held: new Map() };
+    const watch: Watch = { lockId, topic, held: new Map(), lastTupleEmit: new Map() };
     this.watches.set(lockId, watch);
     this.mqtt.subscribe(topic, (payload, meta) => {
       // Diagnostic aid: with log_level=debug this shows every raw state message
@@ -320,10 +327,18 @@ export class LockEventMonitor {
         }
         if (result.viaTupleChange) {
           this.clearHeld(watch, direction);
+          watch.lastTupleEmit.set(direction, Date.now());
           this.emit(watch, friendlyName, result.event);
         } else {
-          // State-transition fallback: hold briefly in case the real tuple
-          // change (with the correct source/user) follows.
+          // State-transition fallback: hold for the grace period in case the
+          // authoritative tuple change follows (state and last_* updates often
+          // arrive in separate messages, seconds apart). If a tuple change for
+          // this direction was emitted just before, this is only the state
+          // echo of the same action — absorb it.
+          const lastTuple = watch.lastTupleEmit.get(direction) ?? Number.NEGATIVE_INFINITY;
+          if (Date.now() - lastTuple < this.fallbackHoldMs) {
+            continue;
+          }
           this.clearHeld(watch, direction);
           const timer = setTimeout(() => {
             watch.held.delete(direction);

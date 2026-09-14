@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.5
+
+- Fixed wrong user attribution when unlocking with a code from an unmanaged
+  slot: the Nimly publishes the state change carrying the *previous* unlock's
+  `last_unlock_*` values, with the real update following seconds later. The
+  state-transition fallback previously fired after 1.5 s — before the real
+  tuple update — attributing the unlock to the previous user. Fallbacks are
+  now held for 10 s and superseded by the real tuple change; unmanaged slots
+  correctly show up as "Unknown user (slot N)" without a notification.
+- State echoes arriving after a tuple change (reverse message order) are
+  absorbed instead of producing duplicate events.
+
 ## 0.1.4
 
 - Coalesced notifications: after a keypad unlock the app waits up to

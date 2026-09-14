@@ -306,6 +306,72 @@ describe('LockEventMonitor — last_* style end to end', () => {
     expect(seen).toEqual([{ kind: 'keypad-unlock', slot: 2, source: 'keypad' }]);
   });
 
+  it('state message carrying the stale tuple does not misattribute the unlock (user regression)', async () => {
+    // Real-world Nimly pattern: the state message carries the last known
+    // (stale) tuple from the PREVIOUS unlock. Unlocking with a code for an
+    // unmanaged slot must NOT attribute the unlock to the previous user.
+    const mqtt = new FakeTopicClient();
+    const monitor = new LockEventMonitor(mqtt, quietLogger, HOLD_MS);
+    const seen: Array<{ kind: string; slot?: number }> = [];
+    monitor.onEvent((occ) => seen.push({ kind: occ.event.kind, slot: occ.event.slot }));
+    monitor.watch('0xnimly', 'front_door');
+
+    // Johan (slot 1, managed) unlocked before — his tuple is the stale one
+    mqtt.deliver('front_door', {
+      state: 'LOCK',
+      last_unlock_source: 'keypad',
+      last_unlock_user: '1',
+      last_lock_source: 'self',
+      last_lock_user: '1',
+    });
+    expect(seen).toEqual([]);
+
+    // unmanaged code (slot 5): message A carries state + STALE tuple (slot 1)
+    mqtt.deliver('front_door', {
+      state: 'UNLOCK',
+      last_unlock_source: 'keypad',
+      last_unlock_user: '1',
+    });
+    expect(seen).toEqual([]); // held — the stale tuple must not be emitted yet
+
+    // message B: the real tuple update (slot 5, unmanaged → unknown)
+    mqtt.deliver('front_door', {
+      last_unlock_source: 'keypad',
+      last_unlock_user: '5',
+    });
+
+    await settle();
+    expect(seen).toEqual([{ kind: 'keypad-unlock', slot: 5 }]); // NOT slot 1
+  });
+
+  it('state echo after a tuple change is absorbed (single event)', async () => {
+    // Reverse message order: the tuple update arrives first, the state change
+    // after — the state transition is just the echo of the same action.
+    const mqtt = new FakeTopicClient();
+    const monitor = new LockEventMonitor(mqtt, quietLogger, HOLD_MS);
+    const seen: Array<{ kind: string; slot?: number }> = [];
+    monitor.onEvent((occ) => seen.push({ kind: occ.event.kind, slot: occ.event.slot }));
+    monitor.watch('0xnimly', 'front_door');
+
+    mqtt.deliver('front_door', {
+      state: 'LOCK',
+      last_unlock_source: 'zigbee',
+      last_unlock_user: '0',
+      last_lock_source: 'zigbee',
+      last_lock_user: '0',
+    });
+    expect(seen).toEqual([]);
+
+    // tuple update first → authoritative event
+    mqtt.deliver('front_door', { last_unlock_source: 'keypad', last_unlock_user: '3' });
+    expect(seen).toEqual([{ kind: 'keypad-unlock', slot: 3 }]);
+
+    // state echo afterwards → absorbed, no duplicate
+    mqtt.deliver('front_door', { state: 'UNLOCK' });
+    await settle();
+    expect(seen).toEqual([{ kind: 'keypad-unlock', slot: 3 }]);
+  });
+
   it('action-style messages still emit exactly one event (no double with state fallback)', () => {
     const mqtt = new FakeTopicClient();
     const monitor = new LockEventMonitor(mqtt, quietLogger);
