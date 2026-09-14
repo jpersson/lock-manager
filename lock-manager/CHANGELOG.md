@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.4
+
+- Coalesced notifications: after a keypad unlock the app waits up to
+  `notify_coalesce_seconds` (default 15) for the lock to re-lock, then sends
+  one combined notification — e.g. "Alice unlocked front_door. Locked after
+  10 seconds". If no re-lock happens within the window, the plain unlock
+  notification is sent. Set 0 to notify immediately.
+- Fixed duplicate activity entries on locks that report the state change and
+  the `last_*` source/user update in separate messages (e.g. Onesti Nimly):
+  the stale state-transition fallback is now held briefly and dropped when the
+  real tuple change arrives — no more phantom "unlock via fingerprintsensor"
+  entries from the previous unlock's source.
+- Held unlock notifications are flushed (plain message) when the app stops.
+
 ## 0.1.3
 
 - Support Onesti Nimly / EasyAccess-style locks: keypad events are detected

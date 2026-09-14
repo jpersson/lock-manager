@@ -1,7 +1,7 @@
 name: Lock Manager
 slug: lock_manager
 description: Manage keypad users (PIN slots) for Zigbee2MQTT locks
-version: "0.1.3"
+version: "0.1.4"
 arch:
   - aarch64
   - amd64
@@ -24,6 +24,7 @@ options:
   log_level: info
   notifications_enabled: true
   notify_target: notify.notify
+  notify_coalesce_seconds: 15
   z2m_base_topic: zigbee2mqtt
   mqtt_host: ""
   mqtt_port: 1883
@@ -33,6 +34,7 @@ schema:
   log_level: list(trace|debug|info|warning|error)
   notifications_enabled: bool
   notify_target: str?
+  notify_coalesce_seconds: int(0,120)
   z2m_base_topic: str
   mqtt_host: str?
   mqtt_port: port?

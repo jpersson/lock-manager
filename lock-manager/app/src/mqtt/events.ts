@@ -173,18 +173,32 @@ function classifyLast(direction: 'unlock' | 'lock', who: SourceUser | undefined)
   };
 }
 
+export interface DirectionEvent {
+  event: NormalizedLockEvent;
+  /** True when detected from a last_* tuple change; false for the state-transition fallback */
+  viaTupleChange: boolean;
+}
+
 export interface LastStyleResult {
-  events: NormalizedLockEvent[];
+  /** At most one event per direction */
+  unlock?: DirectionEvent;
+  lock?: DirectionEvent;
   baseline: LastStyleBaseline;
 }
 
 /**
  * Turns a new state message into events by diffing it against the baseline.
  *
- * A direction (unlock/lock) counts as an event when its last_* tuple changed,
- * or — as a fallback for repeated activity by the same user (e.g. the same
- * slot unlocking twice in a row) — when the lock state transitioned. The two
- * detections are deduplicated per direction and message.
+ * A direction (unlock/lock) counts as an event when its last_* tuple is
+ * present and changed, or — as a fallback for repeated activity by the same
+ * user (e.g. the same slot unlocking twice in a row) — when the lock state
+ * transitioned. Absent tuples are not treated as changes: partial payloads
+ * must not produce false events.
+ *
+ * The fallback events are weaker: on locks that report the state change and
+ * the last_* update in separate messages, the fallback fires first with the
+ * previous (stale) tuple and the tuple change supersedes it moments later —
+ * the monitor handles that by holding fallback events briefly.
  */
 export function lastStyleEvents(
   prev: LastStyleBaseline | undefined,
@@ -193,30 +207,34 @@ export function lastStyleEvents(
   if (prev === undefined) {
     // First message after (re)watching a lock only establishes the baseline;
     // its content is history, not a fresh event.
-    return { events: [], baseline: { ...cur } };
+    return { baseline: { ...cur } };
   }
 
-  const events: NormalizedLockEvent[] = [];
-
-  // A direction counts as an event when its last_* tuple is present and
-  // changed, or — as a fallback for repeated activity by the same user
-  // (e.g. the same slot unlocking twice in a row) — when the lock state
-  // transitioned. Absent tuples are not treated as changes: partial payloads
-  // (the lock only reporting the fields relevant to what happened) must not
-  // produce false events. The two detections are deduplicated per direction.
   const unlockChanged = cur.unlock !== undefined && !sourceUserEqual(prev.unlock, cur.unlock);
   const unlockByState = prev.state !== 'UNLOCK' && cur.state === 'UNLOCK';
-  if (unlockChanged || unlockByState) {
-    events.push(classifyLast('unlock', cur.unlock));
-  }
 
   const lockChanged = cur.lock !== undefined && !sourceUserEqual(prev.lock, cur.lock);
   const lockByState = prev.state !== 'LOCK' && cur.state === 'LOCK';
-  if (lockChanged || lockByState) {
-    events.push(classifyLast('lock', cur.lock));
-  }
 
-  return { events, baseline: { ...cur } };
+  return {
+    ...(unlockChanged || unlockByState
+      ? {
+          unlock: {
+            event: classifyLast('unlock', cur.unlock),
+            viaTupleChange: unlockChanged,
+          },
+        }
+      : {}),
+    ...(lockChanged || lockByState
+      ? {
+          lock: {
+            event: classifyLast('lock', cur.lock),
+            viaTupleChange: lockChanged,
+          },
+        }
+      : {}),
+    baseline: { ...cur },
+  };
 }
 
 export interface LockEventOccurrence {
@@ -229,7 +247,14 @@ interface Watch {
   lockId: string;
   topic: string;
   lastBaseline?: LastStyleBaseline;
+  /** Held state-transition fallback events, per direction, pending their brief grace period */
+  held: Map<'unlock' | 'lock', { event: NormalizedLockEvent; timer: NodeJS.Timeout }>;
 }
+
+/** How long a state-transition fallback event is held before it is emitted.
+ *  If the real last_* tuple change arrives within this window (locks that
+ *  report state and source/user in separate messages), it supersedes it. */
+const FALLBACK_HOLD_MS = 1500;
 
 /**
  * Subscribes to the state topics of managed locks and emits normalized events.
@@ -241,6 +266,7 @@ export class LockEventMonitor {
   constructor(
     private readonly mqtt: TopicClient,
     private readonly logger: Logger,
+    private readonly fallbackHoldMs: number = FALLBACK_HOLD_MS,
   ) {}
 
   onEvent(cb: (occurrence: LockEventOccurrence) => void): void {
@@ -257,7 +283,7 @@ export class LockEventMonitor {
     if (existing !== undefined) {
       this.mqtt.unsubscribe(existing.topic);
     }
-    const watch: Watch = { lockId, topic };
+    const watch: Watch = { lockId, topic, held: new Map() };
     this.watches.set(lockId, watch);
     this.mqtt.subscribe(topic, (payload, meta) => {
       // Diagnostic aid: with log_level=debug this shows every raw state message
@@ -281,25 +307,31 @@ export class LockEventMonitor {
 
     const actionEvent = normalizeLockEvent(payload);
 
-    const emit = (event: NormalizedLockEvent): void => {
-      this.logger.debug('lock event', {
-        lock: friendlyName,
-        kind: event.kind,
-        action: event.action,
-        source: event.source,
-        slot: event.slot,
-      });
-      for (const cb of this.eventCallbacks) {
-        cb({ lockId: watch.lockId, friendlyName, event });
-      }
-    };
-
     if (actionEvent !== undefined) {
       // Action style wins for this message (locks use one style or the other).
-      emit(actionEvent);
+      this.emit(watch, friendlyName, actionEvent);
     } else if (lastResult !== undefined) {
-      for (const event of lastResult.events) {
-        emit(event);
+      // Tuple-change events carry the real source/user and fire immediately,
+      // superseding any held fallback for that direction.
+      for (const direction of ['unlock', 'lock'] as const) {
+        const result = lastResult[direction];
+        if (result === undefined) {
+          continue;
+        }
+        if (result.viaTupleChange) {
+          this.clearHeld(watch, direction);
+          this.emit(watch, friendlyName, result.event);
+        } else {
+          // State-transition fallback: hold briefly in case the real tuple
+          // change (with the correct source/user) follows.
+          this.clearHeld(watch, direction);
+          const timer = setTimeout(() => {
+            watch.held.delete(direction);
+            this.emit(watch, friendlyName, result.event);
+          }, this.fallbackHoldMs);
+          timer.unref?.();
+          watch.held.set(direction, { event: result.event, timer });
+        }
       }
     }
 
@@ -308,18 +340,47 @@ export class LockEventMonitor {
     }
   }
 
+  private emit(watch: Watch, friendlyName: string, event: NormalizedLockEvent): void {
+    this.logger.debug('lock event', {
+      lock: friendlyName,
+      kind: event.kind,
+      action: event.action,
+      source: event.source,
+      slot: event.slot,
+    });
+    for (const cb of this.eventCallbacks) {
+      cb({ lockId: watch.lockId, friendlyName, event });
+    }
+  }
+
+  private clearHeld(watch: Watch, direction: 'unlock' | 'lock'): void {
+    const held = watch.held.get(direction);
+    if (held !== undefined) {
+      clearTimeout(held.timer);
+      watch.held.delete(direction);
+    }
+  }
+
   unwatch(lockId: string): void {
     const existing = this.watches.get(lockId);
     if (existing !== undefined) {
       this.mqtt.unsubscribe(existing.topic);
+      this.clearAllHeld(existing);
       this.watches.delete(lockId);
     }
   }
 
   stop(): void {
-    for (const { topic } of this.watches.values()) {
-      this.mqtt.unsubscribe(topic);
+    for (const watch of this.watches.values()) {
+      this.mqtt.unsubscribe(watch.topic);
+      this.clearAllHeld(watch);
     }
     this.watches.clear();
+  }
+
+  private clearAllHeld(watch: Watch): void {
+    for (const direction of watch.held.keys()) {
+      this.clearHeld(watch, direction);
+    }
   }
 }

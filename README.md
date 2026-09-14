@@ -50,6 +50,7 @@ more locks, and notifications plus an activity log for keypad events.
 | `log_level` | `info` | `trace` / `debug` / `info` / `warning` / `error` |
 | `notifications_enabled` | `true` | Notify when a recognized user locks/unlocks via keypad |
 | `notify_target` | `notify.notify` | HA notify action to call (`domain.service` form) |
+| `notify_coalesce_seconds` | `15` | After a keypad unlock, wait up to this many seconds for the (auto-)relock and send one combined notification (`<user> unlocked <lock>. Locked after N seconds`); `0` = notify immediately |
 | `z2m_base_topic` | `zigbee2mqtt` | Zigbee2MQTT base topic; the actual value is confirmed from `bridge/info` and adopted automatically if it differs |
 | `mqtt_host` | *(empty)* | Manual broker host — fallback when auto-discovery is unavailable |
 | `mqtt_port` | `1883` | Manual broker port |

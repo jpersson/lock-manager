@@ -11,7 +11,9 @@ Manage keypad users for your Zigbee2MQTT locks from the Home Assistant sidebar.
 - Apply one user's PIN to one or more locks in a single action
 - Per-slot apply status (applied / pending / failed) with manual retry
 - Keypad lock/unlock events are detected and mapped to user names; recognized
-  users trigger a configurable Home Assistant notification
+  users trigger a configurable Home Assistant notification. Unlock
+  notifications are coalesced with the following (auto-)relock into one
+  message: "<user> unlocked <lock>. Locked after N seconds"
 - Activity log with timestamps for all lock events (recognized, unknown, manual),
   kept for 90 days
 
@@ -34,6 +36,8 @@ is the source of truth.
 | `log_level` | `info` | Logging verbosity |
 | `notifications_enabled` | `true` | Send notifications on keypad events by recognized users |
 | `notify_target` | `notify.notify` | Home Assistant notify action to call (e.g. `notify.notify`, `notify.mobile_app_pixel`) |
+| `notify_coalesce_seconds` | `15` | After a keypad unlock, wait up to this many seconds for the (auto-)relock and send one combined notification (`<user> unlocked <lock>. Locked after N seconds`); `0` = notify immediately |
+| `notify_coalesce_seconds` | `15` | After a keypad unlock, wait up to this many seconds for the (auto-)relock and send one combined notification; `0` = notify immediately |
 | `z2m_base_topic` | `zigbee2mqtt` | Zigbee2MQTT base topic (confirmed from `bridge/info` when possible) |
 | `mqtt_host` | *(empty)* | Manual MQTT broker host (fallback when auto-discovery is unavailable) |
 | `mqtt_port` | `1883` | Manual MQTT broker port |

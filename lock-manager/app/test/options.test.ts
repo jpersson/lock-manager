@@ -28,6 +28,7 @@ describe('options loader', () => {
         notifications_enabled: false,
         notify_target: 'notify.mobile_app_pixel',
         z2m_base_topic: 'z2m',
+        notify_coalesce_seconds: 3,
         mqtt_host: 'broker.local',
         mqtt_port: 1884,
         mqtt_user: 'user',
@@ -39,6 +40,7 @@ describe('options loader', () => {
       logLevel: 'debug',
       notificationsEnabled: false,
       notifyTarget: 'notify.mobile_app_pixel',
+      notifyCoalesceSeconds: 3,
       z2mBaseTopic: 'z2m',
       mqttOverride: { host: 'broker.local', port: 1884, user: 'user', password: 'pass' },
       dataDir: dir,
@@ -51,8 +53,16 @@ describe('options loader', () => {
     expect(options.logLevel).toBe('info');
     expect(options.notificationsEnabled).toBe(true);
     expect(options.notifyTarget).toBe('notify.notify');
+    expect(options.notifyCoalesceSeconds).toBe(15);
     expect(options.z2mBaseTopic).toBe('zigbee2mqtt');
     expect(options.mqttOverride).toBeUndefined();
+  });
+
+  it('clamps the coalesce window to 0..120 seconds', () => {
+    const options = loadOptions({ LM_DATA_DIR: tempDir(), LM_NOTIFY_COALESCE_SECONDS: '999' });
+    expect(options.notifyCoalesceSeconds).toBe(15);
+    const zero = loadOptions({ LM_DATA_DIR: tempDir(), LM_NOTIFY_COALESCE_SECONDS: '0' });
+    expect(zero.notifyCoalesceSeconds).toBe(0);
   });
 
   it('LM_* env vars override file values (dev mode)', () => {

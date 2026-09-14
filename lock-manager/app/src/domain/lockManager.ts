@@ -43,6 +43,11 @@ export class LockManager {
   private readonly driver: LockDriver;
   private readonly monitor: LockEventMonitor;
   private purgeTimer: NodeJS.Timeout | undefined;
+  /** Pending (held) unlock notifications per lock, waiting for the re-lock */
+  private readonly pendingNotify = new Map<
+    string,
+    { userName: string; lockName: string; startTs: number; timer: NodeJS.Timeout }
+  >();
 
   constructor(private readonly deps: DomainDeps) {
     this.driver = new LockDriver(deps.mqtt, deps.logger);
@@ -66,6 +71,12 @@ export class LockManager {
     if (this.purgeTimer !== undefined) {
       clearInterval(this.purgeTimer);
       this.purgeTimer = undefined;
+    }
+    // Flush held notifications so nothing is lost on shutdown.
+    for (const [lockId, pending] of this.pendingNotify) {
+      clearTimeout(pending.timer);
+      this.pendingNotify.delete(lockId);
+      void this.sendNotify(`${pending.userName} unlocked ${pending.lockName}`);
     }
     this.monitor.stop();
   }
@@ -254,29 +265,72 @@ export class LockManager {
       ...(entry ? { userName: entry.name } : {}),
     });
 
-    const recognized =
-      entry !== undefined && (event.kind === 'keypad-unlock' || event.kind === 'keypad-lock');
-    if (!recognized || !this.notificationsEnabled) {
+    if (!this.notificationsEnabled) {
       return;
     }
 
-    const verb = event.kind === 'keypad-unlock' ? 'unlocked' : 'locked';
-    const message = `${entry.name} ${verb} ${lockName}`;
-    void this.deps.supervisor
-      .callNotifyService(this.notifyTarget, 'Lock Manager', message)
-      .then(() => {
-        this.deps.logger.info('notification sent', { target: this.notifyTarget, message });
-      })
-      .catch((err: unknown) => {
-        const error = String(err instanceof Error ? err.message : err);
-        this.deps.logger.error('notification failed', { target: this.notifyTarget, error });
-        this.recordActivity({
-          lockId,
-          lockName,
-          type: 'notify-failed',
-          detail: `notify ${this.notifyTarget}: ${error}`,
-        });
+    // A held unlock notification is completed by any lock event for the same
+    // lock (auto-relock): one combined notification per unlock cycle.
+    const pending = this.pendingNotify.get(lockId);
+    if (pending !== undefined && event.action === 'lock') {
+      this.pendingNotify.delete(lockId);
+      clearTimeout(pending.timer);
+      const seconds = Math.max(1, Math.round((Date.now() - pending.startTs) / 1000));
+      void this.sendNotify(
+        `${pending.userName} unlocked ${pending.lockName}. Locked after ${seconds} seconds`,
+      );
+      return;
+    }
+
+    const recognized =
+      entry !== undefined && (event.kind === 'keypad-unlock' || event.kind === 'keypad-lock');
+    if (!recognized) {
+      return;
+    }
+
+    if (event.kind === 'keypad-unlock' && this.coalesceSeconds > 0) {
+      // Hold the notification for the (auto-)lock to arrive and combine.
+      const previous = this.pendingNotify.get(lockId);
+      if (previous !== undefined) {
+        clearTimeout(previous.timer);
+      }
+      const timer = setTimeout(() => {
+        this.pendingNotify.delete(lockId);
+        void this.sendNotify(`${entry.name} unlocked ${lockName}`);
+      }, this.coalesceSeconds * 1000);
+      timer.unref?.();
+      this.pendingNotify.set(lockId, {
+        userName: entry.name,
+        lockName,
+        startTs: Date.now(),
+        timer,
       });
+      return;
+    }
+
+    if (event.kind === 'keypad-unlock') {
+      // coalescing disabled: send immediately
+      void this.sendNotify(`${entry.name} unlocked ${lockName}`);
+      return;
+    }
+
+    void this.sendNotify(`${entry.name} locked ${lockName}`);
+  }
+
+  private async sendNotify(message: string): Promise<void> {
+    try {
+      await this.deps.supervisor.callNotifyService(this.notifyTarget, 'Lock Manager', message);
+      this.deps.logger.info('notification sent', { target: this.notifyTarget, message });
+    } catch (err) {
+      const error = String(err instanceof Error ? err.message : err);
+      this.deps.logger.error('notification failed', { target: this.notifyTarget, error });
+      this.recordActivity({
+        lockId: 'system',
+        lockName: '-',
+        type: 'notify-failed',
+        detail: `notify ${this.notifyTarget}: ${error}`,
+      });
+    }
   }
 
   private recordActivity(entry: Omit<ActivityEntry, 'ts'>): void {
@@ -284,6 +338,10 @@ export class LockManager {
   }
 
   // ------------------------------------------------------------- settings
+
+  get coalesceSeconds(): number {
+    return this.deps.options.notifyCoalesceSeconds ?? 15;
+  }
 
   get notifyTarget(): string {
     return this.deps.store.settings.notifyTarget ?? this.deps.options.notifyTarget;

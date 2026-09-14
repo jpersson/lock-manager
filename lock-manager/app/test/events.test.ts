@@ -128,7 +128,8 @@ describe('last_* style (Onesti/Nimly)', () => {
 
   it('first message only establishes the baseline (no historical event)', () => {
     const result = lastStyleEvents(undefined, extractLastStyleSnapshot(keypadUnlock) as never);
-    expect(result.events).toEqual([]);
+    expect(result.unlock).toBeUndefined();
+    expect(result.lock).toBeUndefined();
     expect(result.baseline.state).toBe('UNLOCK');
   });
 
@@ -138,9 +139,11 @@ describe('last_* style (Onesti/Nimly)', () => {
       lock: { source: 'self', user: 0 },
     }).baseline;
     const result = lastStyleEvents(baseline, extractLastStyleSnapshot(keypadUnlock) as never);
-    expect(result.events).toEqual([
-      { kind: 'keypad-unlock', action: 'unlock', source: 'keypad', slot: 1 },
-    ]);
+    expect(result.unlock).toEqual({
+      event: { kind: 'keypad-unlock', action: 'unlock', source: 'keypad', slot: 1 },
+      viaTupleChange: true,
+    });
+    expect(result.lock).toBeUndefined();
   });
 
   it('auto-relock reports as a manual/self lock event', () => {
@@ -150,7 +153,11 @@ describe('last_* style (Onesti/Nimly)', () => {
       unlock: { source: 'keypad', user: 1 },
       lock: { source: 'self', user: 0 },
     });
-    expect(result.events).toEqual([{ kind: 'manual', action: 'lock', source: 'self', slot: 0 }]);
+    expect(result.lock).toEqual({
+      event: { kind: 'manual', action: 'lock', source: 'self', slot: 0 },
+      viaTupleChange: true,
+    });
+    expect(result.unlock).toBeUndefined();
   });
 
   it('same user unlocking again (tuple unchanged) is caught by the state transition', () => {
@@ -162,11 +169,15 @@ describe('last_* style (Onesti/Nimly)', () => {
       unlock: { source: 'keypad', user: 1 },
       lock: { source: 'self', user: 1 },
     });
-    expect(result.events).toEqual([{ kind: 'manual', action: 'lock', source: 'self', slot: 1 }]);
+    expect(result.lock).toEqual({
+      event: { kind: 'manual', action: 'lock', source: 'self', slot: 1 },
+      viaTupleChange: true,
+    });
     result = lastStyleEvents(result.baseline, { state: 'UNLOCK', unlock: { source: 'keypad', user: 1 } });
-    expect(result.events).toEqual([
-      { kind: 'keypad-unlock', action: 'unlock', source: 'keypad', slot: 1 },
-    ]);
+    expect(result.unlock).toEqual({
+      event: { kind: 'keypad-unlock', action: 'unlock', source: 'keypad', slot: 1 },
+      viaTupleChange: false, // detected via the state transition, held briefly
+    });
   });
 
   it('rfid/fingerprint/zigbee/unknown sources classify as other', () => {
@@ -174,9 +185,10 @@ describe('last_* style (Onesti/Nimly)', () => {
       state: 'UNLOCK',
       unlock: { source: 'rfid', user: 3 },
     });
-    expect(result.events).toEqual([
-      { kind: 'other', action: 'unlock', source: 'rfid', slot: 3 },
-    ]);
+    expect(result.unlock).toEqual({
+      event: { kind: 'other', action: 'unlock', source: 'rfid', slot: 3 },
+      viaTupleChange: true,
+    });
   });
 
   it('no events when nothing changed', () => {
@@ -184,19 +196,29 @@ describe('last_* style (Onesti/Nimly)', () => {
       { state: 'UNLOCK', unlock: { source: 'keypad', user: 1 } },
       { state: 'UNLOCK', unlock: { source: 'keypad', user: 1 } },
     );
-    expect(result.events).toEqual([]);
+    expect(result.unlock).toBeUndefined();
+    expect(result.lock).toBeUndefined();
   });
 
   it('state-only transitions (remote unlock) produce other events', () => {
     const result = lastStyleEvents({ state: 'LOCK' }, { state: 'UNLOCK' });
-    expect(result.events).toEqual([{ kind: 'other', action: 'unlock' }]);
+    expect(result.unlock).toEqual({
+      event: { kind: 'other', action: 'unlock' },
+      viaTupleChange: false,
+    });
   });
 });
 
 describe('LockEventMonitor — last_* style end to end', () => {
-  it('Nimly flow: baseline → keypad unlock → auto-relock → re-unlock same user', () => {
+  const HOLD_MS = 20;
+
+  async function settle(ms = 2 * HOLD_MS): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  it('Nimly flow: baseline → keypad unlock → auto-relock → re-unlock same user', async () => {
     const mqtt = new FakeTopicClient();
-    const monitor = new LockEventMonitor(mqtt, quietLogger);
+    const monitor = new LockEventMonitor(mqtt, quietLogger, HOLD_MS);
     const seen: Array<{ lockId: string; kind: string; slot?: number }> = [];
     monitor.onEvent((occ) =>
       seen.push({ lockId: occ.lockId, kind: occ.event.kind, slot: occ.event.slot }),
@@ -234,15 +256,54 @@ describe('LockEventMonitor — last_* style end to end', () => {
     });
     expect(seen.at(-1)).toEqual({ lockId: '0xnimly', kind: 'manual', slot: 1 });
 
-    // same user unlocks again — tuple unchanged, state transition fires
+    // same user unlocks again — tuple unchanged, the held state-transition
+    // fallback fires after the grace period
     mqtt.deliver('front_door', {
       state: 'UNLOCK',
       lock_state: 'unlocked',
       last_unlock_source: 'keypad',
       last_unlock_user: '1',
     });
+    await settle();
     expect(seen.at(-1)).toEqual({ lockId: '0xnimly', kind: 'keypad-unlock', slot: 1 });
     expect(seen).toHaveLength(3);
+  });
+
+  it('stale-tuple fallback is superseded by the tuple change (E2E duplicate regression)', async () => {
+    // The Nimly reports the state change and the last_* update in separate
+    // messages. The state transition fires with the PREVIOUS tuple (e.g. a
+    // fingerprint unlock from earlier) and must be replaced by the real
+    // keypad tuple change that follows moments later — one correct event.
+    const mqtt = new FakeTopicClient();
+    const monitor = new LockEventMonitor(mqtt, quietLogger, HOLD_MS);
+    const seen: Array<{ kind: string; slot?: number; source?: string }> = [];
+    monitor.onEvent((occ) =>
+      seen.push({ kind: occ.event.kind, slot: occ.event.slot, source: occ.event.source }),
+    );
+    monitor.watch('0xnimly', 'front_door');
+
+    // baseline: previously unlocked with the fingerprint sensor by user 2
+    mqtt.deliver('front_door', {
+      state: 'LOCK',
+      last_unlock_source: 'fingerprintsensor',
+      last_unlock_user: '2',
+      last_lock_source: 'self',
+      last_lock_user: '2',
+    });
+    expect(seen).toEqual([]);
+
+    // message A: state transition only — would fire a stale fallback event
+    mqtt.deliver('front_door', { state: 'UNLOCK' });
+    expect(seen).toEqual([]); // held, not yet emitted
+
+    // message B: the real tuple change (keypad, user 2)
+    mqtt.deliver('front_door', {
+      last_unlock_source: 'keypad',
+      last_unlock_user: '2',
+    });
+
+    await settle(); // held fallback is dropped (superseded), never fires
+    expect(seen).toEqual([{ kind: 'keypad-unlock', slot: 2, source: 'keypad' }]);
   });
 
   it('action-style messages still emit exactly one event (no double with state fallback)', () => {
@@ -265,9 +326,9 @@ describe('LockEventMonitor — last_* style end to end', () => {
     expect(seen).toHaveLength(1);
   });
 
-  it('re-watching (rename) resets the baseline', () => {
+  it('re-watching (rename) resets the baseline', async () => {
     const mqtt = new FakeTopicClient();
-    const monitor = new LockEventMonitor(mqtt, quietLogger);
+    const monitor = new LockEventMonitor(mqtt, quietLogger, HOLD_MS);
     const seen: unknown[] = [];
     monitor.onEvent((occ) => seen.push(occ));
     monitor.watch('0x1', 'front_door');
@@ -280,6 +341,7 @@ describe('LockEventMonitor — last_* style end to end', () => {
     expect(seen).toHaveLength(0);
 
     mqtt.deliver('front_door_lock', { state: 'UNLOCK', last_unlock_source: 'keypad', last_unlock_user: '1' });
+    await settle();
     expect(seen.at(-1)).toMatchObject({ event: { kind: 'keypad-unlock' } });
   });
 });

@@ -283,7 +283,7 @@ describe('LockManager — PIN apply/clear', () => {
 });
 
 describe('LockManager — event pipeline + notifications', () => {
-  it('recognized keypad unlock → activity + notification with lock/user/action', async () => {
+  it('keypad unlock + relock within the window → ONE combined notification + activity', async () => {
     const { manager, store, mqtt, supervisor } = await createManager();
     manager.manageLock(frontDoor);
     store.upsertUser(frontDoor.id, { slot: 2, name: 'Alice' });
@@ -295,9 +295,8 @@ describe('LockManager — event pipeline + notifications', () => {
     });
     await new Promise((r) => setImmediate(r));
 
-    expect(supervisor.notifyCalls).toEqual([
-      { target: 'notify.notify', title: 'Lock Manager', message: 'Alice unlocked front_door' },
-    ]);
+    // the unlock notification is held, waiting for the relock
+    expect(supervisor.notifyCalls).toEqual([]);
     expect(store.getActivity(10).entries[0]).toMatchObject({
       type: 'keypad-unlock',
       lockName: 'front_door',
@@ -306,6 +305,66 @@ describe('LockManager — event pipeline + notifications', () => {
       action: 'unlock',
       source: 'keypad',
     });
+
+    // the relock completes the cycle: one combined notification
+    mqtt.deliver('front_door', { action: 'lock', action_source_name: 'keypad', action_user: 2 });
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+
+    expect(supervisor.notifyCalls).toEqual([
+      {
+        target: 'notify.notify',
+        title: 'Lock Manager',
+        message: 'Alice unlocked front_door. Locked after 1 seconds',
+      },
+    ]);
+    const activity = store.getActivity(10).entries;
+    expect(activity[0]).toMatchObject({ type: 'keypad-lock', slot: 2 });
+    expect(activity[1]).toMatchObject({ type: 'keypad-unlock', slot: 2 });
+  });
+
+  it('window expiry without a relock sends the plain unlock notification', async () => {
+    const { manager, store, mqtt, supervisor } = await createManager({
+      options: { notifyCoalesceSeconds: 0.05 },
+    });
+    manager.manageLock(frontDoor);
+    store.upsertUser(frontDoor.id, { slot: 2, name: 'Alice' });
+
+    mqtt.deliver('front_door', { action: 'unlock', action_source_name: 'keypad', action_user: 2 });
+    expect(supervisor.notifyCalls).toEqual([]);
+
+    await new Promise((r) => setTimeout(r, 150));
+    expect(supervisor.notifyCalls).toEqual([
+      { target: 'notify.notify', title: 'Lock Manager', message: 'Alice unlocked front_door' },
+    ]);
+  });
+
+  it('coalesce disabled (0 seconds) notifies immediately', async () => {
+    const { manager, store, mqtt, supervisor } = await createManager({
+      options: { notifyCoalesceSeconds: 0 },
+    });
+    manager.manageLock(frontDoor);
+    store.upsertUser(frontDoor.id, { slot: 2, name: 'Alice' });
+
+    mqtt.deliver('front_door', { action: 'unlock', action_source_name: 'keypad', action_user: 2 });
+    await new Promise((r) => setImmediate(r));
+    expect(supervisor.notifyCalls).toEqual([
+      { target: 'notify.notify', title: 'Lock Manager', message: 'Alice unlocked front_door' },
+    ]);
+  });
+
+  it('a held unlock notification is flushed (plain message) on shutdown', async () => {
+    const { manager, store, mqtt, supervisor } = await createManager();
+    manager.manageLock(frontDoor);
+    store.upsertUser(frontDoor.id, { slot: 2, name: 'Alice' });
+
+    mqtt.deliver('front_door', { action: 'unlock', action_source_name: 'keypad', action_user: 2 });
+    expect(supervisor.notifyCalls).toEqual([]);
+
+    await manager.stop();
+    expect(supervisor.notifyCalls).toEqual([
+      { target: 'notify.notify', title: 'Lock Manager', message: 'Alice unlocked front_door' },
+    ]);
   });
 
   it('recognized keypad lock also notifies; unknown slots are logged without notification', async () => {
@@ -351,7 +410,10 @@ describe('LockManager — event pipeline + notifications', () => {
   it('notification failures land in the activity log and never crash the app', async () => {
     const supervisor = new FakeSupervisor();
     supervisor.shouldFail = true;
-    const { manager, store, mqtt } = await createManager({ supervisor });
+    const { manager, store, mqtt } = await createManager({
+      supervisor,
+      options: { notifyCoalesceSeconds: 0 },
+    });
     manager.manageLock(frontDoor);
     store.upsertUser(frontDoor.id, { slot: 2, name: 'Alice' });
 
@@ -368,7 +430,9 @@ describe('LockManager — event pipeline + notifications', () => {
   });
 
   it('respects the notifications toggle and the notify target override', async () => {
-    const { manager, store, mqtt, supervisor } = await createManager();
+    const { manager, store, mqtt, supervisor } = await createManager({
+      options: { notifyCoalesceSeconds: 0 },
+    });
     manager.manageLock(frontDoor);
     store.upsertUser(frontDoor.id, { slot: 2, name: 'Alice' });
 
