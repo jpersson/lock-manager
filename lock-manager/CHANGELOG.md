@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- Diagnostics: with `log_level: debug` the app logs every raw state message
+  received for a watched lock (topic + payload) to troubleshoot keypad event
+  detection.
+
 ## 0.1.1
 
 - Switching to published images

@@ -115,7 +115,15 @@ export class LockEventMonitor {
       this.mqtt.unsubscribe(existing.topic);
     }
     this.watches.set(lockId, { lockId, topic });
-    this.mqtt.subscribe(topic, (payload) => {
+    this.mqtt.subscribe(topic, (payload, meta) => {
+      // Diagnostic aid: with log_level=debug this shows every raw state message
+      // the app receives for a watched lock (secrets are scrubbed by the logger).
+      this.logger.debug('lock state message', {
+        lock: friendlyName,
+        topic: meta.topic,
+        retain: meta.retain,
+        payload,
+      });
       const event = normalizeLockEvent(payload);
       if (event === undefined) {
         return;
