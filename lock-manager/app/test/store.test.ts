@@ -40,10 +40,17 @@ describe('PinCrypto', () => {
     const crypto = new PinCrypto(randomBytes(32));
     const enc = crypto.encrypt('1234');
     const [iv, tag, data] = enc.split('.');
-    const flipped = (tag.slice(0, -2) + (tag.endsWith('A') ? 'B' : 'A') + tag.slice(-1)).padEnd(
-      tag.length,
-      tag.endsWith('A') ? 'A' : 'B',
-    );
+    // Flip the first tag byte deterministically — a no-op flip would make
+    // this test flaky (random ciphertexts occasionally matched the old
+    // character-replacement scheme).
+    const tagBytes = Buffer.from(tag, 'base64url');
+    const first = tagBytes[0];
+    if (first === undefined) {
+      throw new Error('auth tag shorter than expected');
+    }
+    tagBytes[0] = first ^ 0xff;
+    const flipped = tagBytes.toString('base64url');
+    expect(flipped).not.toBe(tag);
     expect(() => crypto.decrypt([iv, flipped, data].join('.'))).toThrow(/authentication/i);
   });
 
