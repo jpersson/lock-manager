@@ -12,6 +12,8 @@ Execution log for the plan in `plan.md`. Updated as steps complete.
 ## Corrections discovered during implementation
 
 - **Ingress admin header**: the Supervisor does not send an `X-Remote-User-Is-Admin` header (plan step 8 assumed one). Admin visibility is enforced by HA via `panel_admin: true`; the app records `X-Remote-User-Name`/`X-Remote-User-Id` for audit purposes only.
+- **CI bug (run 34812356726)**: debounced store flush fired after test teardown removed the data dir → throw inside a timer callback. The same failure would crash the app on any transient write error. Fixed: `flushNow` logs and never throws; added `close()` (cancel timer + final flush), used by shutdown and the test harness; regression test added (102 tests now). CI caught what 20+ local runs did not.
+- **QEMU runner variance**: the main-run aarch64 build once ground for 30+ min on a contended emulated runner (identical commit built in 2m43s on proteus); cancel + rerun resolved it.
 - **Notify service path**: Supervisor proxy path is `/core/api/services/<domain>/<service>` (e.g. `/core/api/services/notify/notify`), body `{title, message}`.
 - **Z2M clear payload** (confirmed on zigbee2mqtt.io device pages): `{"pin_code":{"user":N}}` with `pin_code` omitted; Danalock remove is the same shape.
 - **Keypad action shape** (confirmed): `action` ∈ {lock, unlock, lock_failure_*, unlock_failure_*, manual_lock, manual_unlock, one_touch_lock, …} + `action_source_name` ∈ {keypad, rfid, manual, rf} + `action_user`. No `keypad_lock`/`keypad_unlock` action values exist; normalizer still tolerates them defensively.
